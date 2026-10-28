@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLB Notes — Semester 1</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:820px;margin:0 auto;padding:20px;line-height:1.5}
+input,button{font-size:16px;padding:8px 10px;margin:4px 4px 4px 0}
+.card{border:1px solid #ddd;border-radius:10px;padding:14px;margin:12px 0}
+.card h3{margin:0 0 4px}
+.meta{color:#555;font-size:14px}
+a{color:#0b5fff}
+</style>
+</head>
+<body>
+<h1>LLB Notes — Semester 1</h1>
+<p>Notes are stored on Google Drive. This site is only the index — it stays light, fast on a phone, and free on GitHub Pages.</p>
+<p><input id="q" placeholder="Search topic, paper, case, section…" style="width:100%;box-sizing:border-box">
+<div id="filters"></div></p>
+<div id="list">Loading notes…</div>
+<h2>Send a note</h2>
+<p>Send a file to the Telegram bot with: paper, unit and topic. After approval it is saved to Drive and appears here automatically.</p>
+<script>
+let all=[];
+async function load(){
+  const r=await fetch('notes.json'); all=await r.json(); render('All','');
+}
+function render(paper,q){
+  const box=document.getElementById('list'); box.innerHTML='';
+  const rows=all.filter(n=>(paper==='All'||n.paper===paper)&&JSON.stringify(n).toLowerCase().includes(q.toLowerCase()));
+  if(!rows.length){box.textContent='No notes match yet.';return;}
+  rows.sort((a,b)=>b.date.localeCompare(a.date)).forEach(n=>{
+    const d=document.createElement('div'); d.className='card';
+    d.innerHTML=`<h3>${n.paper} — ${n.unit}</h3><div>${n.topic}</div><div class="meta">${n.date} · ${n.type}</div><p><a href="${n.drive_link}" target="_blank" rel="noopener">Open note in Google Drive →</a></p>`;
+    box.appendChild(d);
+  });
+  const f=document.getElementById('filters');
+  if(!f.dataset.done){f.dataset.done=1;['All',...new Set(all.map(n=>n.paper))].forEach(p=>{const b=document.createElement('button');b.textContent=p;b.onclick=()=>render(p,document.getElementById('q').value);f.appendChild(b);});}
+}
+document.getElementById('q').addEventListener('input',e=>render('All',e.target.value));
+load();
+</script>
+</body>
+</html>
