@@ -3,43 +3,128 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LLB Notes — Semester 1</title>
-<style>
-body{font-family:system-ui,sans-serif;max-width:820px;margin:0 auto;padding:20px;line-height:1.5}
-input,button{font-size:16px;padding:8px 10px;margin:4px 4px 4px 0}
-.card{border:1px solid #ddd;border-radius:10px;padding:14px;margin:12px 0}
-.card h3{margin:0 0 4px}
-.meta{color:#555;font-size:14px}
-a{color:#0b5fff}
-</style>
+<title>LawVault — Your LLB Class Knowledge Library</title>
+<meta name="description" content="LawVault: a premium editorial LLB class library. Notes are stored on Google Drive; this site is the index and navigation layer.">
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<h1>LLB Notes — Semester 1</h1>
-<p>Notes are stored on Google Drive. This site is only the index — it stays light, fast on a phone, and free on GitHub Pages.</p>
-<p><input id="q" placeholder="Search topic, paper, case, section…" style="width:100%;box-sizing:border-box">
-<div id="filters"></div></p>
-<div id="list">Loading notes…</div>
-<h2>Send a note</h2>
-<p>Send a file to the Telegram bot with: paper, unit and topic. After approval it is saved to Drive and appears here automatically.</p>
-<script>
-let all=[];
-async function load(){
-  const r=await fetch('notes.json'); all=await r.json(); render('All','');
-}
-function render(paper,q){
-  const box=document.getElementById('list'); box.innerHTML='';
-  const rows=all.filter(n=>(paper==='All'||n.paper===paper)&&JSON.stringify(n).toLowerCase().includes(q.toLowerCase()));
-  if(!rows.length){box.textContent='No notes match yet.';return;}
-  rows.sort((a,b)=>b.date.localeCompare(a.date)).forEach(n=>{
-    const d=document.createElement('div'); d.className='card';
-    d.innerHTML=`<h3>${n.paper} — ${n.unit}</h3><div>${n.topic}</div><div class="meta">${n.date} · ${n.type}</div><p><a href="${n.drive_link}" target="_blank" rel="noopener">Open note in Google Drive →</a></p>`;
-    box.appendChild(d);
-  });
-  const f=document.getElementById('filters');
-  if(!f.dataset.done){f.dataset.done=1;['All',...new Set(all.map(n=>n.paper))].forEach(p=>{const b=document.createElement('button');b.textContent=p;b.onclick=()=>render(p,document.getElementById('q').value);f.appendChild(b);});}
-}
-document.getElementById('q').addEventListener('input',e=>render('All',e.target.value));
-load();
-</script>
+<a class="skip" href="#home">Skip to content</a>
+<header>
+  <div class="header-in">
+    <a class="wordmark" href="#home">Law<span>Vault</span></a>
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="mainNav">Menu</button>
+    <nav id="mainNav" aria-label="Main navigation">
+      <a href="#home" class="active">Home</a>
+      <a href="#today">Today's Note</a>
+      <a href="#semesters">Semester Notes</a>
+      <a href="#cases">Case Laws</a>
+      <a href="#papers">Previous Papers</a>
+      <a href="#exam">Exam Prep</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <div class="header-tools">
+      <span>Announcements: <span id="announceDot">0</span></span>
+      <label class="small" for="themeSelect">Theme</label>
+      <select id="themeSelect" aria-label="Theme preset">
+        <option>Modern Kerala Editorial</option>
+        <option>Minimal Dark</option>
+        <option>High-Contrast Green</option>
+        <option>Monochrome Academic</option>
+      </select>
+    </div>
+  </div>
+  <div class="announce" id="announceBar" style="display:none"></div>
+</header>
+<main>
+  <section class="hero reveal" id="home">
+    <h1 id="heroTitle">Welcome to LawVault</h1>
+    <p class="sub" id="heroSub"></p>
+    <p class="tagline" id="heroTag"></p>
+    <div class="hero-panel">
+      <blockquote><span id="heroQuote"></span><footer id="heroQuoteBy"></footer></blockquote>
+      <p><a class="btn" href="#today">Today's Note</a> <a class="btn ghost" href="#semesters">Semester Notes</a> <a class="btn ghost" id="mainDriveLink" href="#" target="_blank" rel="noopener">Open main Drive folder</a></p>
+      <p class="small">Links labelled “Open in Google Drive” open Google Drive. LawVault does not host the files themselves.</p>
+    </div>
+  </section>
+
+  <section aria-label="Search">
+    <h2>Search LawVault</h2>
+    <label class="small" for="globalSearch">Search subjects, case names, years, and categories</label>
+    <input type="search" id="globalSearch" placeholder="Search LawVault metadata…">
+    <p class="note" id="searchNote"></p>
+    <div id="searchResults"></div>
+    <h3>Bookmarks</h3><div id="bookmarkList"></div>
+    <h3>Recently visited</h3><div id="recentList"></div>
+  </section>
+
+  <div id="sections">
+    <section id="sec-today" class="reveal">
+      <p class="sec-no">01 — TODAY</p>
+      <h2 id="today">Today's Note</h2>
+      <p><span class="pill">Active for 24 Hours</span></p>
+      <p class="lede">Notes for the current day, in Asia/Kolkata time. A note expires 24 hours after its publication time and is then hidden from this active list. Expiry hides it here; it does not delete it from the configuration.</p>
+      <div id="todayList"></div>
+    </section>
+
+    <section id="sec-semesters" class="reveal">
+      <p class="sec-no">02 — LIBRARY</p>
+      <h2 id="semesters">Semester Notes</h2>
+      <p class="lede">Choose a semester. Semester 1 is featured by default. Each card opens its Google Drive document or folder.</p>
+      <div class="tabs" id="semTabs" role="tablist" aria-label="Semesters"></div>
+      <div class="grid" id="semList"></div>
+      <p><a class="btn ghost" id="allSubjectsLink" href="#semesters">All Subjects</a></p>
+    </section>
+
+    <section id="sec-cases" class="reveal">
+      <p class="sec-no">03 — CASES</p>
+      <h2 id="cases">Case Laws</h2>
+      <p class="lede">Search case-law metadata configured in LawVault. No case facts or citations are invented here.</p>
+      <label class="small" for="caseSearch">Search by case name</label>
+      <input type="search" id="caseSearch" placeholder="Search case name…">
+      <label class="small" for="caseSubject">Filter by subject</label>
+      <select id="caseSubject"><option value="">All subjects</option><option>Demo</option></select>
+      <div id="caseList"></div>
+    </section>
+
+    <section id="sec-papers" class="reveal">
+      <p class="sec-no">04 — PAPERS</p>
+      <h2 id="papers">Previous Papers</h2>
+      <p class="lede">Previous-year paper collections configured in LawVault. No years or document counts are claimed unless they are configured.</p>
+      <label class="small" for="paperSearch">Search papers</label>
+      <input type="search" id="paperSearch" placeholder="Search year, subject…">
+      <div class="grid" id="paperList"></div>
+      <p><a class="btn ghost" href="#papers">View All Years</a></p>
+    </section>
+
+    <section id="sec-exam" class="reveal">
+      <p class="sec-no">05 — EXAM</p>
+      <h2 id="exam">Exam Prep</h2>
+      <p class="lede">Exam-preparation resources. No countdown is shown unless an exam date is set in the configuration.</p>
+      <div class="grid" id="examList"></div>
+      <h3>Revision checklist</h3><div id="checklist"></div>
+    </section>
+
+    <section id="sec-pending" class="reveal">
+      <p class="sec-no">06 — PENDING</p>
+      <h2 id="pending">Pending and Unverified Content</h2>
+      <p class="lede">Draft, raw, and unverified material. This section is visually distinct on purpose and is never presented as official or approved.</p>
+      <div id="pendingList"></div>
+    </section>
+
+    <section id="sec-contact" class="reveal">
+      <p class="sec-no">07 — CONTACT</p>
+      <h2 id="contact">Contact Me</h2>
+      <p class="lede">Contact cards are enabled only when the owner adds a real destination in config.json. No contact details are fabricated here.</p>
+      <div class="grid" id="contactList"></div>
+    </section>
+  </div>
+</main>
+<footer>
+  <p><strong>LawVault</strong> — Your LLB Class Knowledge Library.</p>
+  <p><a href="#home">Home</a> · <a href="#today">Today's Note</a> · <a href="#semesters">Semester Notes</a> · <a href="#cases">Case Laws</a> · <a href="#papers">Previous Papers</a> · <a href="#exam">Exam Prep</a> · <a href="#contact">Contact</a></p>
+  <p class="small">Disclaimer: LawVault is an index and navigation layer only. Files are stored on Google Drive and open in Google Drive. Unverified content is marked as such and is not official. Demo entries are placeholders only.</p>
+  <p>© <span id="year"></span> LawVault</p>
+</footer>
+<script src="./app.js"></script>
 </body>
 </html>
