@@ -1,130 +1,148 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-mode="dark" data-color="emerald" data-festival="none">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LawVault — Your LLB Class Knowledge Library</title>
-<meta name="description" content="LawVault: a premium editorial LLB class library. Notes are stored on Google Drive; this site is the index and navigation layer.">
-<link rel="stylesheet" href="./styles.css">
+<meta name="description" content="LawVault: your LLB class notes, case laws, papers and exam resources, organised in one place. Notes are stored on Google Drive; this site is the index and navigation layer.">
+<meta name="theme-color" content="#031B17">
+<link rel="icon" type="image/svg+xml" href="./assets/images/logo.svg">
+<link rel="apple-touch-icon" href="./assets/images/icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
-<a class="skip" href="#home">Skip to content</a>
-<header>
+<a class="skip" href="#today">Skip to today's notes</a>
+
+<header class="site-header">
   <div class="header-in">
-    <a class="wordmark" href="#home">Law<span>Vault</span></a>
-    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="mainNav">Menu</button>
-    <nav id="mainNav" aria-label="Main navigation">
-      <a href="#home" class="active">Home</a>
-      <a href="#today">Today's Note</a>
-      <a href="#semesters">Semester Notes</a>
-      <a href="#cases">Case Laws</a>
-      <a href="#papers">Previous Papers</a>
-      <a href="#exam">Exam Prep</a>
-      <a href="#contact">Contact</a>
-    </nav>
+    <a class="brand" href="#home" aria-label="LawVault home">
+      <img src="./assets/images/logo.svg" alt="LawVault logo" width="34" height="34">
+      <span><span class="brand-name">LawVault</span><span class="brand-sub">LLB CLASS LIBRARY</span></span>
+    </a>
+    <nav class="main-nav" id="mainNav" aria-label="Main navigation"></nav>
     <div class="header-tools">
-      <span>Announcements: <span id="announceDot">0</span></span>
-      <label class="small" for="themeSelect">Theme</label>
-      <select id="themeSelect" aria-label="Theme preset">
-        <option>Modern Kerala Editorial</option>
-        <option>Minimal Dark</option>
-        <option>High-Contrast Green</option>
-        <option>Monochrome Academic</option>
-      </select>
+      <button class="icon-btn" id="searchBtn" aria-label="Search">🔍</button>
+      <button class="icon-btn" id="bellBtn" aria-label="Notifications">🔔<span class="dot" id="bellDot"></span></button>
+      <button class="icon-btn" id="savedBtn" aria-label="Bookmarks and recently viewed">☆</button>
+      <button class="icon-btn" id="themeBtn" aria-label="Appearance and themes">🎨</button>
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
   </div>
-  <div class="announce" id="announceBar" style="display:none"></div>
+  <div class="card theme-panel" id="themePanel" role="dialog" aria-label="Appearance settings"></div>
+  <div class="card theme-panel" id="savedPanel" role="dialog" aria-label="Bookmarks and recently viewed"></div>
 </header>
-<main>
-  <section class="hero reveal" id="home">
-    <h1 id="heroTitle">Welcome to LawVault</h1>
-    <p class="sub" id="heroSub"></p>
-    <p class="tagline" id="heroTag"></p>
-    <div class="hero-panel">
-      <blockquote><span id="heroQuote"></span><footer id="heroQuoteBy"></footer></blockquote>
-      <p><a class="btn" href="#today">Today's Note</a> <a class="btn ghost" href="#semesters">Semester Notes</a> <a class="btn ghost" id="mainDriveLink" href="#" target="_blank" rel="noopener">Open main Drive folder</a></p>
-      <p class="small">Links labelled “Open in Google Drive” open Google Drive. LawVault does not host the files themselves.</p>
-    </div>
-  </section>
 
-  <section aria-label="Search">
-    <h2>Search LawVault</h2>
-    <label class="small" for="globalSearch">Search subjects, case names, years, and categories</label>
-    <input type="search" id="globalSearch" placeholder="Search LawVault metadata…">
-    <p class="note" id="searchNote"></p>
-    <div id="searchResults"></div>
-    <h3>Bookmarks</h3><div id="bookmarkList"></div>
-    <h3>Recently visited</h3><div id="recentList"></div>
-  </section>
+<div class="search-bar" id="searchBar">
+  <div class="search-box">
+    <input id="searchInput" type="search" placeholder="Search subjects, cases, papers…" aria-label="Search LawVault" autocomplete="off">
+    <div class="suggest" id="suggest"></div>
+    <p class="search-note" id="searchNote"></p>
+  </div>
+</div>
 
+<section class="welcome" id="home">
+  <div class="welcome-in">
+    <h1 id="welcomeTitle">Your LLB Study Space</h1>
+    <p id="welcomeSub"></p>
+    <p class="festival-note" id="festivalNote" aria-live="polite"></p>
+  </div>
+</section>
+
+<main class="wrap">
+  <div id="announceBar"></div>
+
+  <!-- priority area: today's notes + latest updates -->
+  <div class="main-grid">
+    <section class="block card pad" id="today" aria-label="Today's notes">
+      <div class="sec-head"><span class="ico">📖</span><h2>TODAY'S NOTES</h2></div>
+      <div id="todayBody"><div class="empty">Loading…</div></div>
+    </section>
+    <section class="block card pad" id="updates" aria-label="Latest updates">
+      <div class="sec-head"><span class="ico">⚡</span><h2>LATEST UPDATES</h2></div>
+      <div id="updatesBody"><div class="empty">Loading…</div></div>
+    </section>
+  </div>
+
+  <!-- search results + case detail (shown on demand) -->
+  <section class="block" id="searchResults" style="display:none" aria-label="Search results"></section>
+  <section class="block" id="caseDetail" style="display:none" aria-label="Case detail"></section>
+
+  <!-- remaining sections, reordered/hidden from data/site-config.json -->
   <div id="sections">
-    <section id="sec-today" class="reveal">
-      <p class="sec-no">01 — TODAY</p>
-      <h2 id="today">Today's Note</h2>
-      <p><span class="pill">Active for 24 Hours</span></p>
-      <p class="lede">Notes for the current day, in Asia/Kolkata time. A note expires 24 hours after its publication time and is then hidden from this active list. Expiry hides it here; it does not delete it from the configuration.</p>
-      <div id="todayList"></div>
+    <section class="block" data-section="semesters" id="semesters" aria-label="Browse by semester">
+      <div class="card pad">
+        <div class="sec-head"><span class="ico">📚</span><h2>BROWSE BY SEMESTER</h2>
+          <div class="sec-actions"><a class="btn ghost small" href="#semesters">View All Semesters →</a></div>
+        </div>
+        <p class="sec-sub">Access all subject notes, organised semester-wise.</p>
+        <div class="sem-tabs" id="semTabs" role="tablist" aria-label="Semesters"></div>
+        <div class="subj-grid" id="semGrid"></div>
+      </div>
     </section>
 
-    <section id="sec-semesters" class="reveal">
-      <p class="sec-no">02 — LIBRARY</p>
-      <h2 id="semesters">Semester Notes</h2>
-      <p class="lede">Choose a semester. Semester 1 is featured by default. Each card opens its Google Drive document or folder.</p>
-      <div class="tabs" id="semTabs" role="tablist" aria-label="Semesters"></div>
-      <div class="grid" id="semList"></div>
-      <p><a class="btn ghost" id="allSubjectsLink" href="#semesters">All Subjects</a></p>
+    <section class="block" data-section="cases" id="cases" aria-label="Case law library">
+      <div class="card pad">
+        <div class="sec-head"><span class="ico">⚖️</span><h2>CASE LAW LIBRARY</h2></div>
+        <p class="sec-sub">Important judgments with facts, issues and ratio.</p>
+        <div id="casesBody"></div>
+      </div>
     </section>
 
-    <section id="sec-cases" class="reveal">
-      <p class="sec-no">03 — CASES</p>
-      <h2 id="cases">Case Laws</h2>
-      <p class="lede">Search case-law metadata configured in LawVault. No case facts or citations are invented here.</p>
-      <label class="small" for="caseSearch">Search by case name</label>
-      <input type="search" id="caseSearch" placeholder="Search case name…">
-      <label class="small" for="caseSubject">Filter by subject</label>
-      <select id="caseSubject"><option value="">All subjects</option><option>Demo</option></select>
-      <div id="caseList"></div>
+    <section class="block" data-section="papers" id="papers" aria-label="Previous year papers">
+      <div class="card pad">
+        <div class="sec-head"><span class="ico">📄</span><h2>PREVIOUS YEAR PAPERS</h2></div>
+        <p class="sec-sub">Year-wise question papers with model answers.</p>
+        <div id="papersBody"></div>
+      </div>
     </section>
 
-    <section id="sec-papers" class="reveal">
-      <p class="sec-no">04 — PAPERS</p>
-      <h2 id="papers">Previous Papers</h2>
-      <p class="lede">Previous-year paper collections configured in LawVault. No years or document counts are claimed unless they are configured.</p>
-      <label class="small" for="paperSearch">Search papers</label>
-      <input type="search" id="paperSearch" placeholder="Search year, subject…">
-      <div class="grid" id="paperList"></div>
-      <p><a class="btn ghost" href="#papers">View All Years</a></p>
+    <section class="block" data-section="exam" id="exam" aria-label="Exam preparation">
+      <div class="card pad">
+        <div class="sec-head"><span class="ico">🎯</span><h2>EXAM PREPARATION</h2></div>
+        <p class="sec-sub">Focused resources to help you prepare better.</p>
+        <div id="examBody"></div>
+      </div>
     </section>
 
-    <section id="sec-exam" class="reveal">
-      <p class="sec-no">05 — EXAM</p>
-      <h2 id="exam">Exam Prep</h2>
-      <p class="lede">Exam-preparation resources. No countdown is shown unless an exam date is set in the configuration.</p>
-      <div class="grid" id="examList"></div>
-      <h3>Revision checklist</h3><div id="checklist"></div>
+    <section class="block" data-section="pending" id="pending" aria-label="Pending and unverified content">
+      <div class="card pad">
+        <div class="sec-head"><span class="ico">⏳</span><h2>PENDING &amp; UNVERIFIED CONTENT</h2></div>
+        <p class="sec-sub">Raw uploads and materials awaiting verification.</p>
+        <div id="pendingBody"></div>
+      </div>
     </section>
 
-    <section id="sec-pending" class="reveal">
-      <p class="sec-no">06 — PENDING</p>
-      <h2 id="pending">Pending and Unverified Content</h2>
-      <p class="lede">Draft, raw, and unverified material. This section is visually distinct on purpose and is never presented as official or approved.</p>
-      <div id="pendingList"></div>
-    </section>
-
-    <section id="sec-contact" class="reveal">
-      <p class="sec-no">07 — CONTACT</p>
-      <h2 id="contact">Contact Me</h2>
-      <p class="lede">Contact cards are enabled only when the owner adds a real destination in config.json. No contact details are fabricated here.</p>
-      <div class="grid" id="contactList"></div>
+    <section class="block" data-section="contact" id="contact" aria-label="Contact and feedback">
+      <div class="card pad">
+        <div class="sec-head"><span class="ico">💬</span><h2>CONTACT &amp; FEEDBACK</h2></div>
+        <p class="sec-sub">Have a query, suggestion or feedback? Reach out here.</p>
+        <div id="contactBody"></div>
+      </div>
     </section>
   </div>
 </main>
-<footer>
-  <p><strong>LawVault</strong> — Your LLB Class Knowledge Library.</p>
-  <p><a href="#home">Home</a> · <a href="#today">Today's Note</a> · <a href="#semesters">Semester Notes</a> · <a href="#cases">Case Laws</a> · <a href="#papers">Previous Papers</a> · <a href="#exam">Exam Prep</a> · <a href="#contact">Contact</a></p>
-  <p class="small">Disclaimer: LawVault is an index and navigation layer only. Files are stored on Google Drive and open in Google Drive. Unverified content is marked as such and is not official. Demo entries are placeholders only.</p>
-  <p>© <span id="year"></span> LawVault</p>
+
+<footer class="site-footer">
+  <div class="footer-in">
+    <a class="brand" href="#home" aria-label="LawVault home">
+      <img src="./assets/images/logo.svg" alt="LawVault logo" width="30" height="30">
+      <span><span class="brand-name">LawVault</span><span class="brand-sub">LLB CLASS LIBRARY</span></span>
+    </a>
+    <span class="sec-sub" id="footTag" style="margin:0"></span>
+    <nav aria-label="Footer">
+      <a href="#home">About</a>
+      <a href="#home">Privacy</a>
+      <a href="#home">Disclaimer</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <div class="copy">© <span id="year"></span> LawVault — LLB Class Library. Notes are stored on Google Drive; this site only links to them.</div>
+  </div>
 </footer>
-<script src="./app.js"></script>
+
+<button id="backTop" aria-label="Back to top">↑</button>
+
+<script src="./assets/js/search.js"></script>
+<script src="./assets/js/app.js"></script>
 </body>
 </html>
