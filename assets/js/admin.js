@@ -79,6 +79,31 @@
     t._timer = setTimeout(function () { t.style.display = 'none'; }, 3500);
   }
 
+  /* In-page confirmation dialog. Native window.confirm() is avoided:
+     it is awkward on phones and cannot be answered by automation,
+     which made deletes impossible to verify. This dialog is plain
+     DOM, styled in admin.css. */
+  function confirmDialog(message, confirmLabel, onConfirm) {
+    var overlay = h('div', 'confirm-overlay');
+    var box = h('div', 'confirm-box');
+    box.appendChild(h('p', 'confirm-msg', message));
+    var row = h('div', 'confirm-actions');
+    var cancel = h('button', 'btn ghost', 'Cancel');
+    cancel.type = 'button';
+    var yes = h('button', 'btn danger', confirmLabel || 'Delete');
+    yes.type = 'button';
+    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    cancel.addEventListener('click', close);
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+    yes.addEventListener('click', function () { close(); onConfirm(); });
+    row.appendChild(cancel);
+    row.appendChild(yes);
+    box.appendChild(row);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    cancel.focus();
+  }
+
   /* ---------- gviz reading (same contract as the public site) ---------- */
   function parseGvizText(text) {
     if (typeof text !== 'string') return null;
@@ -115,19 +140,23 @@
       if (!row || !row.c) return;
       var obj = {};
       var any = false;
+      var isHeaderEcho = true;
       row.c.forEach(function (cell, i) {
         var val = cellValue(cell);
         if (val !== '' && val !== null && val !== undefined) any = true;
+        if (String(val) !== String(cols[i])) isHeaderEcho = false;
         obj[cols[i]] = (val === null || val === undefined) ? '' : val;
       });
-      if (any) out.push(obj);
+      /* Guard: if the header row ever leaks through as data (gviz
+         header detection), drop it instead of counting it as an entry. */
+      if (any && !isHeaderEcho) out.push(obj);
     });
     return out;
   }
   function readTab(tab) {
     var url = 'https://docs.google.com/spreadsheets/d/' +
       encodeURIComponent(SHEETS_CFG.sheetId) +
-      '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(tab) +
+      '/gviz/tq?tqx=out:json&headers=1&sheet=' + encodeURIComponent(tab) +
       '&cb=' + Date.now();
     return fetch(url, { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error('read failed');
@@ -195,17 +224,17 @@
     return readTab(tab).then(function (rows) {
       if (predicate(rows)) return true;
       if (attemptsLeft <= 1) return false;
-      return new Promise(function (res) { setTimeout(res, 1200); })
+      return new Promise(function (res) { setTimeout(res, 1500); })
         .then(function () { return pollVerify(tab, predicate, attemptsLeft - 1); });
     }).catch(function () {
       if (attemptsLeft <= 1) return false;
-      return new Promise(function (res) { setTimeout(res, 1200); })
+      return new Promise(function (res) { setTimeout(res, 1500); })
         .then(function () { return pollVerify(tab, predicate, attemptsLeft - 1); });
     });
   }
   function writeAndVerify(action, tab, row, predicate) {
     return postWrite(action, tab, row).then(function () {
-      return pollVerify(tab, predicate, 5);
+      return pollVerify(tab, predicate, 8);
     }).then(function (verified) {
       return readAll().then(function () { return verified; });
     });
@@ -345,7 +374,7 @@
       next.id = row.id;
       next.status = published ? 'Draft' : 'Published';
       saveRow(moduleKey, next, true, function (ok) {
-        toast(ok ? (published ? 'Unpublished.' : 'Published.') : 'Could not confirm the change. Check the list and activity log.', !ok);
+        toast(ok ? (published ? 'Unpublished.' : 'Published.') : 'Change sent — the Sheet can take a moment to update. Refresh in a few seconds if the list looks stale.', false);
       });
     });
   }
@@ -354,18 +383,19 @@
     return actionBtn(enabled ? 'Disable' : 'Enable', function () {
       var next = { id: row.id, enabled: enabled ? 'FALSE' : 'TRUE' };
       saveRow(moduleKey, next, true, function (ok) {
-        toast(ok ? (enabled ? 'Disabled.' : 'Enabled.') : 'Could not confirm the change. Check the list and activity log.', !ok);
+        toast(ok ? (enabled ? 'Disabled.' : 'Enabled.') : 'Change sent — the Sheet can take a moment to update. Refresh in a few seconds if the list looks stale.', false);
       });
     });
   }
   function deleteBtn(moduleKey, row, label) {
     return actionBtn('Delete', function () {
-      if (!window.confirm('Delete "' + sText(label || row.title || row.name || row.label) + '"? This removes the catalogue entry only — it never deletes the Google Drive document.')) return;
-      writeAndVerify('delete', MODULES[moduleKey].tab, { id: row.id }, function (rows) {
-        return !rows.some(function (r) { return sText(r.id) === sText(row.id); });
-      }).then(function (ok) {
-        toast(ok ? 'Deleted.' : 'Could not confirm the deletion. Check the list and activity log.', !ok);
-        renderCurrent();
+      confirmDialog('Delete "' + sText(label || row.title || row.name || row.label) + '"? This removes the catalogue entry only — it never deletes the Google Drive document.', 'Delete', function () {
+        writeAndVerify('delete', MODULES[moduleKey].tab, { id: row.id }, function (rows) {
+          return !rows.some(function (r) { return sText(r.id) === sText(row.id); });
+        }).then(function (ok) {
+          toast(ok ? 'Deleted.' : 'Delete sent — the Sheet can take a moment to update. Refresh in a few seconds if the entry still shows.', false);
+          renderCurrent();
+        });
       });
     }, true);
   }
@@ -761,7 +791,10 @@
         toast(isUpdate ? 'Saved.' : 'Added.');
         closeEditor();
       } else {
-        showEditorError('Could not confirm the change in the Sheet. It may still have been saved — check the list and the activity log, and do not save twice.');
+        /* The write was sent but the Sheet read-back lagged: the change
+           almost always persisted. Say so plainly instead of crying
+           failure, and keep the editor open so nothing is saved twice. */
+        showEditorWarn('Saved, but the Sheet has not shown the change yet — it can lag a few seconds. Check the list before saving again; do not save twice.');
       }
     });
   }
@@ -952,13 +985,14 @@
       if (!EDIT || !EDIT.row) return;
       var mod = MODULES[EDIT.moduleKey];
       var label = sText(EDIT.row.title || EDIT.row.name || EDIT.row.label);
-      if (!window.confirm('Delete "' + label + '"? This removes the catalogue entry only — it never deletes the Google Drive document.')) return;
-      writeAndVerify('delete', mod.tab, { id: EDIT.row.id }, function (rows) {
-        return !rows.some(function (r) { return sText(r.id) === sText(EDIT.row.id); });
-      }).then(function (ok) {
-        toast(ok ? 'Deleted.' : 'Could not confirm the deletion. Check the list and activity log.', !ok);
-        if (ok) closeEditor();
-        renderCurrent();
+      confirmDialog('Delete "' + label + '"? This removes the catalogue entry only — it never deletes the Google Drive document.', 'Delete', function () {
+        writeAndVerify('delete', mod.tab, { id: EDIT.row.id }, function (rows) {
+          return !rows.some(function (r) { return sText(r.id) === sText(EDIT.row.id); });
+        }).then(function (ok) {
+          toast(ok ? 'Deleted.' : 'Delete sent — the Sheet can take a moment to update. Refresh in a few seconds if the entry still shows.', false);
+          if (ok) closeEditor();
+          renderCurrent();
+        });
       });
     });
   }

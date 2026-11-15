@@ -1043,12 +1043,16 @@
       if (!row || !row.c) return;
       var obj = {};
       var any = false;
+      var isHeaderEcho = true;
       row.c.forEach(function (cell, i) {
         var val = sheetCellValue(cell);
         if (val !== '' && val !== null && val !== undefined) any = true;
+        if (String(val) !== String(cols[i])) isHeaderEcho = false;
         obj[cols[i]] = (val === null || val === undefined) ? '' : val;
       });
-      if (any) out.push(obj);
+      /* Guard: if the header row ever leaks through as data (gviz
+         header detection), drop it instead of counting it as an entry. */
+      if (any && !isHeaderEcho) out.push(obj);
     });
     return out;
   }
@@ -1300,7 +1304,7 @@
 
   function fetchSheetTab(sheetId, tab) {
     var url = 'https://docs.google.com/spreadsheets/d/' + encodeURIComponent(sheetId) +
-      '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(tab);
+      '/gviz/tq?tqx=out:json&headers=1&sheet=' + encodeURIComponent(tab);
     return fetch(url, { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error('sheet fetch failed');
       return r.text();
