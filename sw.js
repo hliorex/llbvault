@@ -1,7 +1,8 @@
-/* LawVault v3 — service worker (optional).
+/* LawVault v4 — service worker (optional).
    Cache-first for same-origin assets and data; navigation requests try
-   the network first and fall back to the cached homepage when offline. */
-var CACHE = 'lawvault-v3';
+   the network first and fall back to the cached homepage when offline.
+   Cache name is bumped from v3 so an old v3 cache is purged on update. */
+var CACHE = 'lawvault-v4';
 var CORE = [
   './',
   './index.html',

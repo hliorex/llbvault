@@ -1,8 +1,34 @@
-# LawVault v3 — LLB Class Knowledge Library
+# LawVault v4 — LLB Class Knowledge Library
 
-A simple, fast, dark-emerald academic website for LLB class notes. Notes
-themselves stay on Google Drive; this site is the index and navigation
-layer. Hosted free on GitHub Pages. No database, no Drive API, no server.
+An editorial, motion-led redesign of the LawVault site: premium serif
+display type, masked headline reveals, chapter-style sections, a
+scrolling header zoom, a self-drawing scales illustration, and a
+marquee strip — all vanilla CSS/JS, no libraries, fast on Android
+phones. Notes themselves stay on Google Drive; this site is the index
+and navigation layer. Hosted free on GitHub Pages. No database, no
+Drive API, no server.
+
+v4 keeps everything v3 had: the same content, the same theme system
+(dark/light, 5 colours, automatic festival themes), the same PWA
+manifest/icons/service worker, the same search, bookmarks, and
+checklist behaviour. Bookmarks, recent views, theme choices, and
+checklist state carry over from v3 because the browser-storage keys
+are unchanged.
+
+## Motion and accessibility
+
+- Headlines reveal word-by-word through overflow masks; cards reveal
+  with a stagger as they scroll into view (IntersectionObserver).
+- The welcome banner artwork zooms subtly on scroll; a scroll-progress
+  bar runs along the top of the header.
+- A scales-of-justice line illustration draws itself on first view.
+- A slow marquee strip runs between the banner and the content.
+- `prefers-reduced-motion` disables all of the above: everything is
+  static and fully readable. On phones, motion is lighter and the
+  parallax is off.
+- Progressive enhancement: every hiding effect is gated behind a `js`
+  class added by the script, so if JavaScript fails, headings and
+  content stay visible.
 
 ## What is real vs placeholder
 
@@ -25,20 +51,19 @@ layer. Hosted free on GitHub Pages. No database, no Drive API, no server.
 
 ## Publish to GitHub Pages (beginner steps)
 
-1. Create a new public repository on GitHub (e.g. `llbvault`).
-2. In this folder, run:
-   ```
-   git init
-   git add .
-   git commit -m "Publish LawVault v3"
-   git branch -M main
-   git remote add origin https://github.com/YOUR-USERNAME/llbvault.git
-   git push -u origin main
-   ```
-3. On GitHub: repository **Settings → Pages** → Source "Deploy from a
-   branch", branch `main`, folder `/ (root)` → Save.
-4. Wait a minute or two, then open
-   `https://YOUR-USERNAME.github.io/llbvault/`.
+The live site is the `hliorex/llbvault` repository, branch `main`,
+folder `/ (root)`. To publish v4:
+
+1. Before publishing, the v3 site must be backed up — see
+   `ROLLBACK.md` (a `v3-backup` branch in GitHub plus the untouched
+   local folder `~/workspace/llb-notes-site-v3/`).
+2. Upload this folder's contents to the repository root, replacing
+   `index.html`, `assets/`, `data/`, `sw.js`, `manifest.webmanifest`,
+   and `README.md`. (The `bot/` and `worker/` folders are skeletons
+   only and are not published to the live site.)
+3. Wait for the GitHub Pages rebuild, then open
+   `https://hliorex.github.io/llbvault/` and check the banner,
+   Today's Notes, Semester 1, search, and the theme switcher.
 
 All internal links are relative (`./assets/...`, `./data/...`), so the
 site works under the `/llbvault/` subpath. No build step is needed.
@@ -61,6 +86,7 @@ they are public.
 1. **Festival dates** (`data/site-config.json` → `theme.festivals`):
    Diwali, Holi, Onam, Eid al-Fitr (and Pongal) move every year — confirm
    the ranges each year. Wrong dates only affect the automatic theme.
+   The corrected 2027 dates are already in this file.
 2. **Today's Notes** (`data/content.json` → `todayNotes.items`): add
    `{ id, title, description, link, publishedAt }`. Items expire 24 hours
    after `publishedAt` (Asia/Kolkata) and hide automatically.

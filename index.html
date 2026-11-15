@@ -15,6 +15,7 @@
 <a class="skip" href="#today">Skip to today's notes</a>
 
 <header class="site-header">
+  <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
   <div class="header-in">
     <a class="brand" href="#home" aria-label="LawVault home">
       <img src="./assets/images/logo.svg" alt="LawVault logo" width="34" height="34">
@@ -41,25 +42,54 @@
   </div>
 </div>
 
-<section class="welcome" id="home">
+<section class="welcome" id="home" aria-label="Welcome">
+  <div class="welcome-art" id="welcomeArt" aria-hidden="true">
+    <div class="aurora aurora-a"></div>
+    <div class="aurora aurora-b"></div>
+    <svg class="scales" id="scalesSvg" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+      <g stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path class="draw" pathLength="1" d="M100 28 L100 168"/>
+        <path class="draw" pathLength="1" d="M38 52 L162 52"/>
+        <path class="draw" pathLength="1" d="M100 28 m-7 0 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0"/>
+        <path class="draw" pathLength="1" d="M84 168 L116 168 M92 168 L92 156 M108 168 L108 156"/>
+        <path class="draw" pathLength="1" d="M38 52 L38 96 M38 96 L24 122 M38 96 L52 122 M24 122 L52 122"/>
+        <path class="draw" pathLength="1" d="M162 52 L162 96 M162 96 L148 122 M162 96 L176 122 M148 122 L176 122"/>
+        <path class="draw" pathLength="1" d="M100 40 L100 52"/>
+      </g>
+    </svg>
+  </div>
   <div class="welcome-in">
-    <h1 id="welcomeTitle">Your LLB Study Space</h1>
+    <p class="welcome-kicker" data-mask>LLB · Class Knowledge Library</p>
+    <h1 id="welcomeTitle" data-mask>Your LLB Study Space</h1>
     <p id="welcomeSub"></p>
     <p class="festival-note" id="festivalNote" aria-live="polite"></p>
+    <div class="welcome-links">
+      <a class="btn small" href="#today">Today's Notes ↓</a>
+      <a class="btn ghost small" href="#semesters">Browse Semesters →</a>
+    </div>
   </div>
 </section>
 
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-inner">
+    <span>Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <span>Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  </div>
+</div>
+
 <main class="wrap">
   <div id="announceBar"></div>
+  <noscript><div class="card empty"><strong>JavaScript is off</strong>LawVault loads its content from two configuration files with JavaScript. Please enable JavaScript to browse the notes, or open the main Drive folder directly from the link in the site footer.</div></noscript>
 
   <!-- priority area: today's notes + latest updates -->
+  <div class="chapter-tag" data-chapter="today"><span class="chapter-num">01</span><span class="chapter-label">Today</span><span class="chapter-rule"></span></div>
   <div class="main-grid">
     <section class="block card pad" id="today" aria-label="Today's notes">
-      <div class="sec-head"><span class="ico">📖</span><h2>TODAY'S NOTES</h2></div>
+      <div class="sec-head"><span class="ico">📖</span><h2 data-mask>TODAY'S NOTES</h2></div>
       <div id="todayBody"><div class="empty">Loading…</div></div>
     </section>
     <section class="block card pad" id="updates" aria-label="Latest updates">
-      <div class="sec-head"><span class="ico">⚡</span><h2>LATEST UPDATES</h2></div>
+      <div class="sec-head"><span class="ico">⚡</span><h2 data-mask>LATEST UPDATES</h2></div>
       <div id="updatesBody"><div class="empty">Loading…</div></div>
     </section>
   </div>
@@ -71,8 +101,9 @@
   <!-- remaining sections, reordered/hidden from data/site-config.json -->
   <div id="sections">
     <section class="block" data-section="semesters" id="semesters" aria-label="Browse by semester">
+      <div class="chapter-tag"><span class="chapter-num">02</span><span class="chapter-label">Browse by Semester</span><span class="chapter-rule"></span></div>
       <div class="card pad">
-        <div class="sec-head"><span class="ico">📚</span><h2>BROWSE BY SEMESTER</h2>
+        <div class="sec-head"><span class="ico">📚</span><h2 data-mask>BROWSE BY SEMESTER</h2>
           <div class="sec-actions"><a class="btn ghost small" href="#semesters">View All Semesters →</a></div>
         </div>
         <p class="sec-sub">Access all subject notes, organised semester-wise.</p>
@@ -82,40 +113,45 @@
     </section>
 
     <section class="block" data-section="cases" id="cases" aria-label="Case law library">
+      <div class="chapter-tag"><span class="chapter-num">03</span><span class="chapter-label">Case Law Library</span><span class="chapter-rule"></span></div>
       <div class="card pad">
-        <div class="sec-head"><span class="ico">⚖️</span><h2>CASE LAW LIBRARY</h2></div>
+        <div class="sec-head"><span class="ico">⚖️</span><h2 data-mask>CASE LAW LIBRARY</h2></div>
         <p class="sec-sub">Important judgments with facts, issues and ratio.</p>
         <div id="casesBody"></div>
       </div>
     </section>
 
     <section class="block" data-section="papers" id="papers" aria-label="Previous year papers">
+      <div class="chapter-tag"><span class="chapter-num">04</span><span class="chapter-label">Previous Year Papers</span><span class="chapter-rule"></span></div>
       <div class="card pad">
-        <div class="sec-head"><span class="ico">📄</span><h2>PREVIOUS YEAR PAPERS</h2></div>
+        <div class="sec-head"><span class="ico">📄</span><h2 data-mask>PREVIOUS YEAR PAPERS</h2></div>
         <p class="sec-sub">Year-wise question papers with model answers.</p>
         <div id="papersBody"></div>
       </div>
     </section>
 
     <section class="block" data-section="exam" id="exam" aria-label="Exam preparation">
+      <div class="chapter-tag"><span class="chapter-num">05</span><span class="chapter-label">Exam Preparation</span><span class="chapter-rule"></span></div>
       <div class="card pad">
-        <div class="sec-head"><span class="ico">🎯</span><h2>EXAM PREPARATION</h2></div>
+        <div class="sec-head"><span class="ico">🎯</span><h2 data-mask>EXAM PREPARATION</h2></div>
         <p class="sec-sub">Focused resources to help you prepare better.</p>
         <div id="examBody"></div>
       </div>
     </section>
 
     <section class="block" data-section="pending" id="pending" aria-label="Pending and unverified content">
+      <div class="chapter-tag"><span class="chapter-num">06</span><span class="chapter-label">Pending &amp; Unverified</span><span class="chapter-rule"></span></div>
       <div class="card pad">
-        <div class="sec-head"><span class="ico">⏳</span><h2>PENDING &amp; UNVERIFIED CONTENT</h2></div>
+        <div class="sec-head"><span class="ico">⏳</span><h2 data-mask>PENDING &amp; UNVERIFIED CONTENT</h2></div>
         <p class="sec-sub">Raw uploads and materials awaiting verification.</p>
         <div id="pendingBody"></div>
       </div>
     </section>
 
     <section class="block" data-section="contact" id="contact" aria-label="Contact and feedback">
+      <div class="chapter-tag"><span class="chapter-num">07</span><span class="chapter-label">Contact &amp; Feedback</span><span class="chapter-rule"></span></div>
       <div class="card pad">
-        <div class="sec-head"><span class="ico">💬</span><h2>CONTACT &amp; FEEDBACK</h2></div>
+        <div class="sec-head"><span class="ico">💬</span><h2 data-mask>CONTACT &amp; FEEDBACK</h2></div>
         <p class="sec-sub">Have a query, suggestion or feedback? Reach out here.</p>
         <div id="contactBody"></div>
       </div>
