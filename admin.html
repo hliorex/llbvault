@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en" data-mode="dark" data-color="emerald">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LawVault Admin — LLB Class Library Management</title>
+<meta name="description" content="LawVault admin panel. Manage daily notes, announcements, semesters, and website content stored in a Google Sheet.">
+<meta name="theme-color" content="#031B17">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="./assets/images/logo.svg">
+<link rel="stylesheet" href="./assets/css/admin.css">
+</head>
+<body>
+<header class="admin-header">
+  <div class="header-in">
+    <a class="brand" href="./index.html" aria-label="View the public LawVault site">
+      <img src="./assets/images/logo.svg" alt="LawVault logo" width="34" height="34">
+      <span><span class="brand-name">LawVault Admin</span><span class="brand-sub">LLB CLASS LIBRARY · MANAGEMENT</span></span>
+    </a>
+    <div class="header-tools">
+      <a class="btn ghost small" href="./index.html">View site ↗</a>
+      <button class="btn ghost small" id="logoutBtn" type="button" style="display:none">Log out</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <noscript><div class="card empty"><strong>JavaScript is off.</strong> The admin panel needs JavaScript to talk to the Google Sheet.</div></noscript>
+
+  <!-- ============ LOGIN ============ -->
+  <section id="loginView" aria-label="Admin login">
+    <div class="login-card card pad">
+      <h1>Admin login</h1>
+      <p class="sec-sub">Enter the administrative code and password. They are checked by the Apps Script web app — never stored in this site's code.</p>
+      <div id="connectState" class="connect-state" role="status">Checking connection to the Google Sheet…</div>
+      <form id="loginForm" novalidate>
+        <label class="field"><span>Administrative code</span>
+          <input id="adminCode" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+        </label>
+        <label class="field"><span>Password</span>
+          <input id="adminPass" type="password" autocomplete="current-password" required>
+        </label>
+        <p class="form-error" id="loginError" role="alert" style="display:none"></p>
+        <button class="btn" id="loginBtn" type="submit">Log in</button>
+      </form>
+      <p class="fine-print">No Google login is needed. Your code and password stay in this browser tab only, for this session, and are sent only to the Apps Script URL configured for LawVault.</p>
+    </div>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <div id="appView" style="display:none">
+    <div class="admin-layout">
+      <nav class="side-nav" id="sideNav" aria-label="Admin modules">
+        <button class="nav-btn active" type="button" data-module="dashboard">🏠 Dashboard</button>
+        <button class="nav-btn" type="button" data-module="daily-notes">📖 Daily Notes</button>
+        <button class="nav-btn" type="button" data-module="announcements">📣 Announcements</button>
+        <button class="nav-btn" type="button" data-module="semesters">📚 Semester &amp; Subjects</button>
+        <button class="nav-btn" type="button" data-module="cases">⚖️ Case Laws</button>
+        <button class="nav-btn" type="button" data-module="papers">📄 Question Papers</button>
+        <button class="nav-btn" type="button" data-module="exam">🎯 Exam Preparation</button>
+        <button class="nav-btn" type="button" data-module="pending">⏳ Pending Content</button>
+        <button class="nav-btn" type="button" data-module="contacts">💬 Contact &amp; Feedback</button>
+        <button class="nav-btn" type="button" data-module="appearance">🎨 Appearance</button>
+        <button class="nav-btn" type="button" data-module="settings">⚙️ Website Settings</button>
+        <button class="nav-btn" type="button" data-module="activity">🕘 Activity Log</button>
+      </nav>
+
+      <div class="admin-main">
+        <div class="module-head">
+          <div>
+            <h1 id="moduleTitle">Dashboard</h1>
+            <p class="sec-sub" id="moduleDesc">Overview of LawVault content.</p>
+          </div>
+          <button class="btn ghost small" id="refreshBtn" type="button">↻ Refresh</button>
+        </div>
+
+        <div class="card pad conn-line" id="connLine" role="status">Storage: Google Sheet · Configuration: GitHub</div>
+
+        <!-- Dashboard -->
+        <section class="module-view" id="view-dashboard">
+          <div class="stat-grid">
+            <div class="card stat"><span class="stat-num" id="statSubjects">–</span><span class="stat-label">Subjects</span></div>
+            <div class="card stat"><span class="stat-num" id="statCases">–</span><span class="stat-label">Case laws</span></div>
+            <div class="card stat"><span class="stat-num" id="statPapers">–</span><span class="stat-label">Question papers</span></div>
+            <div class="card stat"><span class="stat-num" id="statResources">–</span><span class="stat-label">Exam resources</span></div>
+            <div class="card stat"><span class="stat-num" id="statToday">–</span><span class="stat-label">Today's published notes</span></div>
+            <div class="card stat"><span class="stat-num" id="statAnnouncements">–</span><span class="stat-label">Active announcements</span></div>
+            <div class="card stat"><span class="stat-num" id="statPending">–</span><span class="stat-label">Pending / unverified</span></div>
+            <div class="card stat"><span class="stat-num" id="statBroken">–</span><span class="stat-label">Missing / bad links</span></div>
+          </div>
+          <div class="card pad">
+            <h2>Quick actions</h2>
+            <div class="quick-actions">
+              <button class="btn small" type="button" data-quick="daily-notes">+ Add Daily Note</button>
+              <button class="btn small" type="button" data-quick="announcements">+ Publish Announcement</button>
+              <button class="btn small" type="button" data-quick="semesters">+ Add Subject</button>
+              <button class="btn small" type="button" data-quick="cases">+ Add Case Law</button>
+              <button class="btn small" type="button" data-quick="papers">+ Add Question Paper</button>
+              <button class="btn small" type="button" data-quick="exam">+ Add Resource</button>
+              <button class="btn ghost small" type="button" data-quick="appearance">Manage Appearance</button>
+            </div>
+          </div>
+          <div class="card pad">
+            <h2>Recently modified</h2>
+            <div id="recentList"><p class="sec-sub">Loading…</p></div>
+          </div>
+        </section>
+
+        <!-- Daily Notes -->
+        <section class="module-view" id="view-daily-notes" style="display:none">
+          <div class="row-between">
+            <p class="sec-sub">Controls the Today's Notes section. Notes expire 24 hours after publishing; expiry only removes them from display — the Drive document is never deleted.</p>
+            <button class="btn small" id="addDailyBtn" type="button">+ Add Daily Note</button>
+          </div>
+          <div id="listDaily"><p class="sec-sub">Loading…</p></div>
+        </section>
+
+        <!-- Announcements -->
+        <section class="module-view" id="view-announcements" style="display:none">
+          <div class="row-between">
+            <p class="sec-sub">Announcements appear in Latest Updates and on the notification bell.</p>
+            <button class="btn small" id="addAnnBtn" type="button">+ Publish Announcement</button>
+          </div>
+          <div id="listAnn"><p class="sec-sub">Loading…</p></div>
+        </section>
+
+        <!-- Semesters & Subjects -->
+        <section class="module-view" id="view-semesters" style="display:none">
+          <h2>Semesters</h2>
+          <p class="sec-sub">A semester marked "not configured" shows "Not configured yet" on the public site, and its subjects stay hidden.</p>
+          <div id="semList"><p class="sec-sub">Loading…</p></div>
+          <h2>Subjects</h2>
+          <div class="row-between">
+            <label class="field inline"><span>Semester</span>
+              <select id="semSelect" aria-label="Choose semester"></select>
+            </label>
+            <button class="btn small" id="addSubjBtn" type="button">+ Add Subject</button>
+          </div>
+          <div id="subjList"><p class="sec-sub">Loading…</p></div>
+        </section>
+
+        <!-- Case Laws (placeholder) -->
+        <section class="module-view" id="view-cases" style="display:none">
+          <div class="card pad empty">
+            <strong>Case Laws management is coming in the next phase.</strong>
+            The Case Law Library on the public site already reads from the <code>case_laws</code> tab of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear. This panel does not manage them yet — nothing here is faked.
+          </div>
+        </section>
+
+        <!-- Question Papers (placeholder) -->
+        <section class="module-view" id="view-papers" style="display:none">
+          <div class="card pad empty">
+            <strong>Question Papers management is coming in the next phase.</strong>
+            The Previous Year Papers section already reads from the <code>papers</code> tab of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear. This panel does not manage them yet — nothing here is faked.
+          </div>
+        </section>
+
+        <!-- Exam Preparation (placeholder) -->
+        <section class="module-view" id="view-exam" style="display:none">
+          <div class="card pad empty">
+            <strong>Exam Preparation management is coming in the next phase.</strong>
+            The Exam Preparation section already reads from the <code>exam_prep</code> tab (and the <code>exam_date</code> setting) of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear. This panel does not manage them yet — nothing here is faked. Revision checklist ticks stay in each student's own browser and are never managed here.
+          </div>
+        </section>
+
+        <!-- Pending Content (placeholder) -->
+        <section class="module-view" id="view-pending" style="display:none">
+          <div class="card pad empty">
+            <strong>Pending Content review is coming in the next phase.</strong>
+            The Pending &amp; Unverified section already reads from the <code>pending</code> tab of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear with their warning styling. This panel does not manage them yet — nothing here is faked.
+          </div>
+        </section>
+
+        <!-- Contact & Feedback (placeholder) -->
+        <section class="module-view" id="view-contacts" style="display:none">
+          <div class="card pad empty">
+            <strong>Contact &amp; Feedback management is coming in the next phase.</strong>
+            The Contact &amp; Feedback section already reads from the <code>contacts</code> tab of the Google Sheet. Cards stay greyed out until a destination is set and the card is enabled. This panel does not manage them yet — nothing here is faked.
+          </div>
+        </section>
+
+        <!-- Appearance (placeholder) -->
+        <section class="module-view" id="view-appearance" style="display:none">
+          <div class="card pad empty">
+            <strong>Appearance management is coming in the next phase.</strong>
+            The default theme, accent colour, and automatic festival themes already read from the <code>settings</code> tab of the Google Sheet (<code>default_mode</code>, <code>default_color</code>, <code>festival_auto</code>). Festival date ranges still live in <code>data/site-config.json</code>. This panel does not manage them yet — nothing here is faked.
+          </div>
+        </section>
+
+        <!-- Website Settings (placeholder) -->
+        <section class="module-view" id="view-settings" style="display:none">
+          <div class="card pad empty">
+            <strong>Website Settings management is coming in the next phase.</strong>
+            The site title, welcome banner, footer text, and main Drive folder link already read from the <code>settings</code> tab of the Google Sheet. Navigation and section order still live in <code>data/site-config.json</code>. This panel does not manage them yet — nothing here is faked.
+          </div>
+        </section>
+
+        <!-- Activity Log -->
+        <section class="module-view" id="view-activity" style="display:none">
+          <p class="sec-sub">Every admin action — including failed logins — is recorded here by the Apps Script. Newest first. This log is read-only in the panel.</p>
+          <div id="logList"><p class="sec-sub">Loading…</p></div>
+        </section>
+
+        <!-- Shared editor -->
+        <section class="card pad" id="editor" style="display:none" aria-label="Editor">
+          <h2 id="editorTitle">Edit entry</h2>
+          <div id="editorFields"></div>
+          <p class="form-error" id="editorError" role="alert" style="display:none"></p>
+          <p class="form-warn" id="editorWarn" role="status" style="display:none"></p>
+          <div class="editor-actions">
+            <button class="btn" id="editorSave" type="button">Save</button>
+            <button class="btn ghost" id="editorPreviewBtn" type="button">Preview</button>
+            <button class="btn danger" id="editorDelete" type="button" style="display:none">Delete</button>
+            <button class="btn ghost" id="editorCancel" type="button">Cancel</button>
+          </div>
+          <div id="editorPreview" style="display:none"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="admin-footer">
+  <div class="footer-in">
+    <span class="sec-sub">LawVault Admin · Storage: Google Sheet · Publishing: Apps Script web app · <a href="./index.html">Public site</a></span>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" style="display:none"></div>
+
+<script src="./assets/js/admin.js"></script>
+</body>
+</html>
