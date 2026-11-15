@@ -1,8 +1,13 @@
-/* LawVault v4 — app.js
+/* LawVault v5 — app.js
    Renders the site from data/site-config.json + data/content.json, and
    runs the editorial motion layer (masked headline reveals, scroll
    reveals, header parallax, scroll progress, scales illustration draw,
    chapter numbering).
+   v5 adds a Google Sheets data layer: when data/sheets-config.json has
+   enabled=true and a sheetId, content is read from that Sheet instead
+   of the local JSON files, tab by tab, with the local files kept as a
+   silent fallback for any tab that fails to load. See the "Google
+   Sheets data layer" section below and SHEET_MODEL.md.
    Security: every config string is inserted as plain text (textContent),
    never as HTML. Only https:// links are accepted. Theme names must be
    from the config allowlists.
@@ -992,39 +997,392 @@
     renumberChapters();
   }
 
+  /* ---------- Google Sheets data layer (v5) ---------- */
+  /* When data/sheets-config.json has enabled=true and a sheetId, the
+     public site reads its content from that Google Sheet (shared
+     "Anyone with the link can view") instead of the local JSON files.
+     Every tab is fetched independently: a tab that fails to load keeps
+     its local fallback, so the site always renders. All sheet values
+     are treated as untrusted text and mapped onto the same shapes the
+     renderers already use; links are still filtered by safeUrl().
+     The SHEETS-START / SHEETS-END markers delimit pure functions with
+     no DOM or network access, so they can be extracted and tested. */
+  /* SHEETS-START */
+  function parseGvizText(text) {
+    if (typeof text !== 'string') return null;
+    var start = text.indexOf('{');
+    var end = text.lastIndexOf('}');
+    if (start === -1 || end <= start) return null;
+    try {
+      var res = JSON.parse(text.slice(start, end + 1));
+      if (!res || res.status !== 'ok' || !res.table) return null;
+      return res.table;
+    } catch (e) { return null; }
+  }
+  function sheetCellValue(cell) {
+    if (!cell) return '';
+    var v = cell.v;
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'string') {
+      var m = /^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/.exec(v.trim());
+      if (m) {
+        var d = new Date(Number(m[1]), Number(m[2]), Number(m[3]),
+          Number(m[4] || 0), Number(m[5] || 0), Number(m[6] || 0));
+        return isNaN(d.getTime()) ? '' : d.toISOString();
+      }
+      return v;
+    }
+    return v;
+  }
+  function gvizRowsToObjects(table) {
+    var cols = (table.cols || []).map(function (c, i) {
+      return (c && c.label ? String(c.label) : 'col' + i).trim();
+    });
+    var out = [];
+    (table.rows || []).forEach(function (row) {
+      if (!row || !row.c) return;
+      var obj = {};
+      var any = false;
+      row.c.forEach(function (cell, i) {
+        var val = sheetCellValue(cell);
+        if (val !== '' && val !== null && val !== undefined) any = true;
+        obj[cols[i]] = (val === null || val === undefined) ? '' : val;
+      });
+      if (any) out.push(obj);
+    });
+    return out;
+  }
+  function sText(v) { return (v === null || v === undefined) ? '' : String(v).trim(); }
+  function sBool(v) {
+    if (v === true || v === 1) return true;
+    if (typeof v === 'string') {
+      var t = v.trim().toLowerCase();
+      return t === 'true' || t === 'yes' || t === '1';
+    }
+    return false;
+  }
+  function sNum(v, fallback) {
+    var n = Number(v);
+    return isNaN(n) ? fallback : n;
+  }
+  function sTime(v) {
+    var t = sText(v);
+    if (!t) return NaN;
+    var ms = Date.parse(t);
+    return isNaN(ms) ? NaN : ms;
+  }
+  function sDatePart(v) {
+    var ms = sTime(v);
+    if (isNaN(ms)) return sText(v).slice(0, 10);
+    var d = new Date(ms);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  /* A sheet row is publicly visible when it is enabled, its status is
+     Published (or Demo), its publish time has passed, and its expiry
+     time (if any) has not. Scheduled items stay hidden until their
+     publish time; expired items disappear without being deleted. */
+  function sPublished(row, now) {
+    if (!sBool(row.enabled)) return false;
+    var st = sText(row.status).toLowerCase();
+    if (st && st !== 'published' && st !== 'demo') return false;
+    var pub = sTime(row.publish_at);
+    if (!isNaN(pub) && pub > now) return false;
+    var exp = sTime(row.expires_at);
+    if (!isNaN(exp) && exp <= now) return false;
+    return true;
+  }
+  function sortByOrder(a, b) {
+    var ao = sNum(a.order, 0), bo = sNum(b.order, 0);
+    if (ao !== bo) return ao - bo;
+    return sText(a.id).localeCompare(sText(b.id));
+  }
+  function mapSheetsToContent(tabs, fallback) {
+    var content = JSON.parse(JSON.stringify(fallback));
+    var now = Date.now();
+    var settingsMap = {};
+    if (tabs.settings) {
+      tabs.settings.forEach(function (r) {
+        var k = sText(r.key);
+        if (k) settingsMap[k] = sText(r.value);
+      });
+    }
+    if (tabs.daily_notes) {
+      content.todayNotes = content.todayNotes || {};
+      content.todayNotes.items = tabs.daily_notes.map(function (r, i) {
+        var pub = sText(r.publish_at) || sText(r.created_at);
+        return {
+          id: sText(r.id) || ('note-' + i),
+          title: sText(r.title),
+          description: sText(r.description),
+          link: sText(r.drive_link),
+          publishedAt: pub,
+          visible: sPublished(r, now)
+        };
+      });
+    }
+    if (tabs.announcements) {
+      var anns = tabs.announcements.map(function (r, i) {
+        return {
+          id: sText(r.id) || ('ann-' + i),
+          title: sText(r.title),
+          description: sText(r.description),
+          publishedAt: sText(r.publish_at) || sText(r.created_at),
+          important: sText(r.badge).toLowerCase() === 'important',
+          pinned: sBool(r.pinned),
+          visible: sPublished(r, now)
+        };
+      });
+      anns.sort(function (a, b) {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        var ta = sTime(a.publishedAt), tb = sTime(b.publishedAt);
+        if (isNaN(ta) && isNaN(tb)) return 0;
+        if (isNaN(ta)) return 1;
+        if (isNaN(tb)) return -1;
+        return tb - ta;
+      });
+      content.latestUpdates = anns;
+      content.announcements = anns;
+    }
+    var configuredSemesters = null;
+    if (tabs.semesters) {
+      var semRows = tabs.semesters.slice().sort(sortByOrder);
+      configuredSemesters = {};
+      content.semesters = semRows.map(function (r, i) {
+        var num = sNum(r.number, i + 1);
+        configuredSemesters[sText(r.id)] = sBool(r.configured);
+        return {
+          id: sText(r.id) || ('sem-' + num),
+          number: num,
+          label: sText(r.label) || ('Semester ' + num),
+          visible: sBool(r.enabled),
+          default: num === 1,
+          featured: num === 1
+        };
+      });
+    }
+    if (tabs.subjects) {
+      var subjRows = tabs.subjects.slice().sort(sortByOrder);
+      content.subjects = subjRows.map(function (r, i) {
+        var name = sText(r.name);
+        var unit = sText(r.unit);
+        var desc = sText(r.description);
+        var semOk = configuredSemesters ? configuredSemesters[sText(r.semester_id)] !== false : true;
+        return {
+          id: sText(r.id) || ('subj-' + i),
+          semesterId: sText(r.semester_id),
+          paper: name,
+          title: [name, unit, desc].filter(Boolean).join(' — '),
+          unit: unit,
+          description: desc,
+          link: sText(r.drive_link),
+          icon: sText(r.icon),
+          date: sDatePart(r.created_at),
+          visible: sBool(r.enabled) && semOk,
+          category: 'Semester Notes'
+        };
+      });
+    }
+    if (tabs.case_laws) {
+      content.caseLaws = tabs.case_laws.map(function (r, i) {
+        var st = sText(r.status).toLowerCase();
+        return {
+          id: sText(r.id) || ('case-' + i),
+          title: sText(r.title),
+          citation: sText(r.citation),
+          court: sText(r.court),
+          year: sText(r.year),
+          subject: sText(r.subject),
+          facts: sText(r.facts),
+          issues: sText(r.issues),
+          judgment: sText(r.judgment),
+          ratio: sText(r.ratio),
+          importance: sText(r.exam_relevance),
+          link: sText(r.drive_link),
+          demo: st === 'demo',
+          visible: st === 'published' || st === 'demo',
+          category: 'Case Laws'
+        };
+      });
+    }
+    if (tabs.papers) {
+      var papers = tabs.papers.map(function (r, i) {
+        var st = sText(r.status).toLowerCase();
+        return {
+          id: sText(r.id) || ('paper-' + i),
+          title: sText(r.title),
+          year: sText(r.year),
+          semesterId: sText(r.semester_id),
+          subject: sText(r.subject),
+          examType: sText(r.exam_type),
+          link: sText(r.drive_link),
+          demo: st === 'demo',
+          visible: st === 'published' || st === 'demo',
+          category: 'Previous Papers'
+        };
+      });
+      papers.sort(function (a, b) { return sText(b.year).localeCompare(sText(a.year)); });
+      content.previousPapers = papers;
+    }
+    if (tabs.exam_prep) {
+      content.examPreparation = content.examPreparation || {};
+      content.examPreparation.cards = tabs.exam_prep.slice().sort(sortByOrder).map(function (r, i) {
+        return {
+          id: sText(r.id) || ('exam-' + i),
+          title: sText(r.title),
+          description: sText(r.description),
+          link: sText(r.drive_link),
+          visible: sBool(r.enabled),
+          category: sText(r.category) || 'Exam Prep'
+        };
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(settingsMap, 'exam_date')) {
+      content.examPreparation = content.examPreparation || {};
+      var ems = sTime(settingsMap.exam_date);
+      content.examPreparation.examDate = isNaN(ems) ? null : settingsMap.exam_date;
+    }
+    if (tabs.pending) {
+      content.pendingContent = content.pendingContent || {};
+      content.pendingContent.entries = tabs.pending.map(function (r, i) {
+        var st = sText(r.status);
+        var low = st.toLowerCase();
+        var reason = sText(r.reason);
+        return {
+          id: sText(r.id) || ('pending-' + i),
+          title: sText(r.title),
+          description: sText(r.description) + (reason ? ' Reason: ' + reason : ''),
+          link: sText(r.drive_link),
+          status: st || 'Pending',
+          demo: low === 'demo',
+          visible: low === 'pending' || low === 'demo',
+          category: 'Pending',
+          dateAdded: sDatePart(r.created_at)
+        };
+      });
+    }
+    if (tabs.contacts) {
+      content.contacts = tabs.contacts.slice().sort(sortByOrder).map(function (r, i) {
+        return {
+          id: sText(r.id) || ('contact-' + i),
+          title: sText(r.label),
+          description: '',
+          destination: sText(r.destination),
+          enabled: sBool(r.enabled),
+          visible: true,
+          placeholder: 'Not configured yet.'
+        };
+      });
+    }
+    return content;
+  }
+  function mapSheetsSettings(rows, fallbackCfg) {
+    var cfg = JSON.parse(JSON.stringify(fallbackCfg));
+    var map = {};
+    rows.forEach(function (r) {
+      var k = sText(r.key);
+      if (k) map[k] = sText(r.value);
+    });
+    cfg.site = cfg.site || {};
+    if (map.site_title) { cfg.site.title = map.site_title; cfg.site.wordmark = map.site_title; }
+    if (map.site_tagline) cfg.site.tagline = map.site_tagline;
+    if (map.welcome_title) cfg.site.welcomeTitle = map.welcome_title;
+    if (map.welcome_subtitle) cfg.site.welcomeSubtitle = map.welcome_subtitle;
+    if (map.footer_tagline) cfg.site.footerTagline = map.footer_tagline;
+    if (map.main_drive_folder && /^https:\/\//i.test(map.main_drive_folder)) cfg.site.mainDriveFolder = map.main_drive_folder;
+    cfg.theme = cfg.theme || {};
+    if (map.default_mode === 'light' || map.default_mode === 'dark') cfg.theme.defaultMode = map.default_mode;
+    var colors = (cfg.theme.colors || []).map(function (c) { return c.id; });
+    if (map.default_color && colors.indexOf(map.default_color) !== -1) cfg.theme.defaultColor = map.default_color;
+    if (map.festival_auto !== undefined && map.festival_auto !== '') cfg.theme.autoFestival = sBool(map.festival_auto);
+    return cfg;
+  }
+  /* SHEETS-END */
+
+  function fetchSheetTab(sheetId, tab) {
+    var url = 'https://docs.google.com/spreadsheets/d/' + encodeURIComponent(sheetId) +
+      '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(tab);
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('sheet fetch failed');
+      return r.text();
+    }).then(function (text) {
+      var table = parseGvizText(text);
+      if (!table) throw new Error('sheet parse failed');
+      return gvizRowsToObjects(table);
+    });
+  }
+  function loadSheets(sheetCfg) {
+    var tabs = ['settings', 'daily_notes', 'announcements', 'semesters',
+      'subjects', 'case_laws', 'papers', 'exam_prep', 'pending', 'contacts'];
+    return Promise.all(tabs.map(function (tab) {
+      return fetchSheetTab(sheetCfg.sheetId, tab).then(function (rows) {
+        return { tab: tab, rows: rows };
+      }).catch(function () {
+        return { tab: tab, rows: null };
+      });
+    })).then(function (results) {
+      var out = {};
+      var any = false;
+      results.forEach(function (r) {
+        if (r.rows !== null) { out[r.tab] = r.rows; any = true; }
+      });
+      return any ? out : null;
+    });
+  }
+
   /* ---------- boot ---------- */
+  function renderAll() {
+    document.title = (CFG.site && CFG.site.title ? CFG.site.title + ' — ' : '') + 'Your LLB Class Knowledge Library';
+    renderNav();
+    renderWelcome();
+    var sn = document.getElementById('searchNote');
+    if (sn) sn.textContent = (CFG.site && CFG.site.searchNote) || '';
+    buildThemePanel(CFG);
+    applyTheme(CFG);
+    renderAnnouncements();
+    renderToday();
+    renderUpdates();
+    renderSemesters();
+    renderCases();
+    renderPapers();
+    renderExam();
+    renderPending();
+    renderContacts();
+    renderFooter();
+    wireHeader();
+    wireSearch();
+    SEARCH_INDEX = window.LVSearch.buildIndex(CONTENT);
+    applySectionOrder();
+    initMotion();
+    initScrollMotion();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    }
+  }
+
   function boot() {
     Promise.all([
       fetch('./data/site-config.json').then(function (r) { return r.json(); }),
       fetch('./data/content.json').then(function (r) { return r.json(); }),
+      fetch('./data/sheets-config.json').then(function (r) { return r.json(); }).catch(function () { return null; }),
     ]).then(function (arr) {
       CFG = arr[0]; CONTENT = arr[1];
-      document.title = (CFG.site && CFG.site.title ? CFG.site.title + ' — ' : '') + 'Your LLB Class Knowledge Library';
-      renderNav();
-      renderWelcome();
-      var sn = document.getElementById('searchNote');
-      if (sn) sn.textContent = (CFG.site && CFG.site.searchNote) || '';
-      buildThemePanel(CFG);
-      applyTheme(CFG);
-      renderAnnouncements();
-      renderToday();
-      renderUpdates();
-      renderSemesters();
-      renderCases();
-      renderPapers();
-      renderExam();
-      renderPending();
-      renderContacts();
-      renderFooter();
-      wireHeader();
-      wireSearch();
-      SEARCH_INDEX = window.LVSearch.buildIndex(CONTENT);
-      applySectionOrder();
-      initMotion();
-      initScrollMotion();
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(function () {});
+      var sheetsCfg = arr[2];
+      var overlay = null;
+      if (sheetsCfg && sheetsCfg.enabled === true && typeof sheetsCfg.sheetId === 'string' && sheetsCfg.sheetId.trim()) {
+        overlay = Promise.race([
+          loadSheets(sheetsCfg),
+          new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 8000); })
+        ]);
       }
+      return (overlay || Promise.resolve(null)).then(function (tabs) {
+        if (tabs) {
+          try {
+            if (tabs.settings) CFG = mapSheetsSettings(tabs.settings, CFG);
+            CONTENT = mapSheetsToContent(tabs, CONTENT);
+          } catch (e) { /* keep the local fallback content */ }
+        }
+        renderAll();
+      });
     }).catch(function () {
       document.getElementById('todayBody').innerHTML =
         '<div class="card empty"><strong>Could not load content</strong>The configuration files could not be fetched. Check your connection and reload.</div>';
