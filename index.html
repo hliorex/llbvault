@@ -2,108 +2,45 @@
 <html lang="en" data-mode="dark" data-color="emerald" data-festival="none">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LawVault — Your LLB Class Knowledge Library</title>
 <meta name="description" content="LawVault: your LLB class notes, case laws, papers and exam resources, organised in one place. Notes are stored on Google Drive; this site is the index and navigation layer.">
 <meta name="theme-color" content="#031B17">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="LawVault">
 <link rel="icon" type="image/svg+xml" href="./assets/images/logo.svg">
 <link rel="apple-touch-icon" href="./assets/images/icon-192.png">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./assets/css/style.css">
-<noscript><style>.lv-preloader{display:none!important}</style></noscript>
 </head>
 <body>
 <a class="skip" href="#today">Skip to today's notes</a>
-
-<!-- Preloader: hidden by app.js once the site has rendered, and by the
-     inline safety timer below if app.js ever fails to load. -->
-<div class="lv-preloader" id="lvPreloader" role="status" aria-live="polite">
-  <div class="preloader-mark">
-    <div class="preloader-halo" aria-hidden="true"></div>
-    <div class="preloader-tile" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path class="preloader-svg-path" d="M12 3v18"/>
-        <path class="preloader-svg-path" d="M5 7h14"/>
-        <path class="preloader-svg-path" d="M5 7l-3 6h6l-3-6z"/>
-        <path class="preloader-svg-path" d="M19 7l-3 6h6l-3-6z"/>
-        <path class="preloader-svg-path" d="M8 21h8"/>
-      </svg>
-    </div>
-  </div>
-  <p class="preloader-kicker">LAWVAULT • LLB CLASS LIBRARY</p>
-  <h2 class="preloader-title">Your LLB Study Space</h2>
-  <p class="preloader-step" id="preloaderStep">Loading LawVault…</p>
-  <div class="preloader-track" aria-hidden="true"><div class="preloader-fill" id="preloaderFill"></div></div>
-  <div class="preloader-meta" aria-hidden="true"><span>LAWVAULT v6</span><span class="preloader-pct" id="preloaderPct">12%</span></div>
-  <button class="preloader-skip" id="preloaderSkip" type="button">Enter Study Space Immediately →</button>
-</div>
-<script>
-/* Safety net only: never trap the visitor behind the preloader. app.js
-   hides it sooner, as soon as the site has rendered. */
-(function () {
-  setTimeout(function () {
-    var p = document.getElementById('lvPreloader');
-    if (p) p.classList.add('preloader-hidden');
-  }, 6000);
-})();
-</script>
-
-<!-- Ambient layers: gradient tint (CSS only, no photos), particles, curtain, spotlight -->
-<div class="ambient-backdrop" aria-hidden="true"><div class="ambient-theme-tint"></div></div>
-<canvas id="deltaParticles" class="delta-particles" aria-hidden="true"></canvas>
-<div class="delta-curtain-wipe" id="curtainWipe" aria-hidden="true"><span class="curtain-label" id="curtainLabel">LawVault Archive</span></div>
-<div class="spotlight-layer" id="spotlightLayer" aria-hidden="true"></div>
 
 <header class="site-header">
   <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
   <div class="header-in">
     <a class="brand" href="#home" aria-label="LawVault home">
-      <span class="brand-tile" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6h6l-3-6z"/><path d="M19 7l-3 6h6l-3-6z"/><path d="M8 21h8"/>
-        </svg>
-      </span>
+      <img src="./assets/images/logo.svg" alt="LawVault logo" width="34" height="34">
       <span><span class="brand-name">LawVault</span><span class="brand-sub">LLB CLASS LIBRARY</span></span>
-      <span class="brand-version" aria-hidden="true">v6</span>
     </a>
     <nav class="main-nav" id="mainNav" aria-label="Main navigation"></nav>
     <div class="header-tools">
-      <button class="icon-btn" id="searchBtn" aria-label="Search" title="Search (Ctrl+K)">🔍</button>
-      <span class="bell-wrap">
-        <button class="icon-btn" id="bellBtn" aria-label="Notifications" aria-expanded="false">🔔<span class="dot" id="bellDot"></span></button>
-        <span class="notif-popup" id="notifPopup" role="dialog" aria-label="Announcements">
-          <span class="notif-head"><span class="notif-title">Announcements</span><span class="notif-count" id="notifCount">0 active</span></span>
-          <span class="notif-list" id="notifList"></span>
-        </span>
-      </span>
-      <button class="icon-btn" id="savedBtn" aria-label="Bookmarks and recently viewed">☆<span class="count-badge" id="savedCount"></span></button>
+      <button class="icon-btn" id="searchBtn" aria-label="Search">🔍</button>
+      <button class="icon-btn" id="bellBtn" aria-label="Notifications">🔔<span class="dot" id="bellDot"></span></button>
+      <button class="icon-btn" id="savedBtn" aria-label="Bookmarks and recently viewed">☆</button>
       <button class="icon-btn" id="themeBtn" aria-label="Appearance and themes">🎨</button>
       <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
   </div>
-  <div class="search-drawer" id="searchBar">
-    <div class="search-box">
-      <span class="search-ico" aria-hidden="true">🔍</span>
-      <input id="searchInput" type="search" placeholder="Search subjects, cases, papers…" aria-label="Search LawVault" autocomplete="off">
-      <span class="search-hints" aria-hidden="true"><kbd>↑↓</kbd><kbd>Enter</kbd></span>
-      <button class="search-esc" id="searchCloseBtn" type="button">Esc</button>
-      <div class="suggest" id="suggest"></div>
-      <p class="search-note" id="searchNote"></p>
-    </div>
-  </div>
+  <div class="card theme-panel" id="themePanel" role="dialog" aria-label="Appearance settings"></div>
+  <div class="card theme-panel" id="savedPanel" role="dialog" aria-label="Bookmarks and recently viewed"></div>
 </header>
 
-<!-- Slide-in panels (content built by app.js) -->
-<div class="panel-backdrop" id="themeBackdrop" hidden></div>
-<aside class="side-panel" id="themePanel" role="dialog" aria-label="Appearance settings"></aside>
-<div class="panel-backdrop" id="savedBackdrop" hidden></div>
-<aside class="side-panel" id="savedPanel" role="dialog" aria-label="Bookmarks and recently viewed"></aside>
+<div class="search-bar" id="searchBar">
+  <div class="search-box">
+    <input id="searchInput" type="search" placeholder="Search subjects, cases, papers…" aria-label="Search LawVault" autocomplete="off">
+    <div class="suggest" id="suggest"></div>
+    <p class="search-note" id="searchNote"></p>
+  </div>
+</div>
 
 <section class="welcome" id="home" aria-label="Welcome">
   <div class="welcome-art" id="welcomeArt" aria-hidden="true">
@@ -129,13 +66,12 @@
     <div class="welcome-links">
       <a class="btn small" href="#today">Today's Notes ↓</a>
       <a class="btn ghost small" href="#semesters">Browse Semesters →</a>
-      <button class="btn ghost small" id="pwaHeroBtn" type="button">📲 App Mode</button>
     </div>
   </div>
 </section>
 
 <div class="marquee" aria-hidden="true">
-  <div class="marquee-inner animate-ticker">
+  <div class="marquee-inner">
     <span>Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;</span>
     <span>Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;Study&nbsp;&nbsp;•&nbsp;&nbsp;Revise&nbsp;&nbsp;•&nbsp;&nbsp;Prepare&nbsp;&nbsp;•&nbsp;&nbsp;Succeed&nbsp;&nbsp;•&nbsp;&nbsp;</span>
   </div>
@@ -225,47 +161,22 @@
 
 <footer class="site-footer">
   <div class="footer-in">
-    <div class="footer-brand">
-      <a class="brand" href="#home" aria-label="LawVault home">
-        <span class="brand-tile small" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6h6l-3-6z"/><path d="M19 7l-3 6h6l-3-6z"/><path d="M8 21h8"/>
-          </svg>
-        </span>
-        <span><span class="brand-name">LawVault</span><span class="brand-sub">LLB CLASS LIBRARY</span></span>
-      </a>
-      <span class="sec-sub" id="footTag" style="margin:0"></span>
-    </div>
-    <nav class="footer-nav" aria-label="Footer">
-      <button type="button" data-footer-modal="About">About</button>
-      <button type="button" data-footer-modal="Privacy">Privacy</button>
-      <button type="button" data-footer-modal="Disclaimer">Disclaimer</button>
+    <a class="brand" href="#home" aria-label="LawVault home">
+      <img src="./assets/images/logo.svg" alt="LawVault logo" width="30" height="30">
+      <span><span class="brand-name">LawVault</span><span class="brand-sub">LLB CLASS LIBRARY</span></span>
+    </a>
+    <span class="sec-sub" id="footTag" style="margin:0"></span>
+    <nav aria-label="Footer">
+      <a href="#home">About</a>
+      <a href="#home">Privacy</a>
+      <a href="#home">Disclaimer</a>
       <a href="#contact">Contact</a>
-      <button type="button" class="footer-pwa" id="pwaFooterBtn">📲 Install Home Screen App</button>
     </nav>
     <div class="copy">© <span id="year"></span> LawVault — LLB Class Library. <span id="footLegal">Notes are stored on Google Drive; this site only links to them.</span></div>
   </div>
 </footer>
 
 <button id="backTop" aria-label="Back to top">↑</button>
-
-<!-- Info modal (About / Privacy / Disclaimer / PWA guidance) -->
-<div class="modal-backdrop" id="infoModal" hidden>
-  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
-    <div class="modal-head">
-      <h3 id="infoModalTitle">LawVault</h3>
-      <button class="icon-btn small" id="infoModalClose" type="button" aria-label="Close">✕</button>
-    </div>
-    <div class="modal-body" id="infoModalBody"></div>
-    <div class="modal-actions">
-      <button class="btn small" id="infoModalInstall" type="button" hidden>Install app</button>
-      <button class="btn ghost small" id="infoModalOk" type="button">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast-banner" id="toastBanner" role="status" aria-live="polite"><span id="toastMessage">Done</span></div>
 
 <script src="./assets/js/search.js"></script>
 <script src="./assets/js/app.js"></script>

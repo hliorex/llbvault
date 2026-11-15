@@ -1,10 +1,10 @@
-/* LawVault v6 — service worker (optional).
+/* LawVault v5 — service worker (optional).
    Cache-first for same-origin assets and data; navigation requests try
    the network first and fall back to the cached homepage when offline.
-   Cache name is bumped from v5 so an old v5 cache is purged on update.
+   Cache name is bumped from v4 so an old v4 cache is purged on update.
    Note: Google Sheet reads (docs.google.com) are cross-origin and are
    never cached here, so Sheet edits show up without a cache purge. */
-var CACHE = 'lawvault-v6';
+var CACHE = 'lawvault-v5-final';
 var CORE = [
   './',
   './index.html',
