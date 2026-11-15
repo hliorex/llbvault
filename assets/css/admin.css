@@ -197,3 +197,21 @@ code { font-size: 13px; background: var(--card-2); padding: 1px 6px; border-radi
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .header-in { flex-wrap: wrap; }
 }
+
+/* In-page confirmation dialog (replaces window.confirm) */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.confirm-box {
+  background: var(--card, #0d3028);
+  border: 1px solid var(--border, #1b5142);
+  border-radius: 14px;
+  padding: 22px;
+  max-width: 420px; width: 100%;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+.confirm-msg { margin: 0 0 18px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
