@@ -1,10 +1,31 @@
-# LawVault v5 — LLB Class Knowledge Library
+# LawVault v7 — LLB Class Knowledge Library ("The Ascent")
 
-v5 builds on v4: the same editorial, motion-led public site (premium
-serif display type, masked headline reveals, chapter-style sections,
-scrolling header zoom, self-drawing scales illustration, marquee
-strip — all vanilla CSS/JS, no libraries, fast on Android phones),
-plus a web **Admin Panel** and **Google Sheets as the database**.
+v7 builds on **v5** (not v6 — the v6 theme was rejected and rolled
+back): the same public site, admin panel, and Google Sheets database,
+with a new "Everest · The Ascent" presentation layer on the public
+site only. Story cards float over a LIVE 3D mountain terrain that
+flies the camera along a glowing trail as the reader scrolls, one
+stop per chapter, grading from dawn to starry night. The reference
+("Everest · The Ascent", an Awwwards inspiration page) has no
+published source code; the look and behaviour were reimplemented
+from scratch.
+
+What changed vs v5 (public site only): `index.html` (terrain stage,
+altitude readout, font links, import map, 3D loader),
+`assets/css/style.css` (glass story cards, full-height welcome,
+thin serif display type), new `assets/js/terrain.js` (Three.js
+scene) + `assets/js/ascent-math.js` (pure, testable terrain/camera/
+grading math), new vendored `assets/vendor/three.module.js` (r160,
+MIT, no CDN) + `assets/img/everest-backdrop.jpg` (backdrop photo,
+also the static fallback), `sw.js` (cache bumped to `lawvault-v7`,
+new assets precached). The admin panel, data layer, search, and all
+data files are byte-identical to v5.
+
+Fallbacks: no WebGL / module failure / reduced motion / no-JS all
+show the static Everest photo backdrop with the site fully usable;
+the 3D module is not even downloaded under reduced motion or
+without WebGL. The altitude readout ("SCROLL n% · n M") is a
+scroll-progress display mapped onto 8,848 m, never content data.
 
 Notes themselves stay on Google Drive; the Sheet stores only titles,
 descriptions, metadata, and Drive links. Hosted free on GitHub Pages.
@@ -148,10 +169,11 @@ The Sheet's tabs, columns, and value formats are documented in
 ## Publish to GitHub Pages (beginner steps)
 
 The live site is the `hliorex/llbvault` repository, branch `main`,
-folder `/ (root)`. To publish v5:
+folder `/ (root)`. To publish v7:
 
-1. Before publishing, the v4 site must be backed up — see
-   `ROLLBACK.md` (a `v4-backup` branch in GitHub plus the untouched
+1. Before publishing, the live site must be backed up — see
+   `ROLLBACK.md` (a backup branch in GitHub plus the untouched
+   local folder of the previous version).
    local folder `~/workspace/llb-notes-site-v4/`).
 2. Upload this folder's contents to the repository root, replacing
    `index.html`, `assets/`, `data/`, `sw.js`, `manifest.webmanifest`,
