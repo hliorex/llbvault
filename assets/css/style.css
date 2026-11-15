@@ -1,15 +1,22 @@
-/* LawVault v4 — dark emerald design system + editorial motion layer.
+/* LawVault v7 — "The Ascent": story cards over live 3D terrain.
+   Built on the v5 design system (same theme layers, same class names,
+   same selectors — the renderers are unchanged). The terrain lives on
+   a fixed canvas behind everything; sections become floating glass
+   story cards with generous gaps so the mountains stay visible.
    Theme layers (applied in this order): base -> data-mode -> data-color -> data-festival.
    Festival themes always win over manual colour choices; a manual colour
    choice sets data-festival="none".
    Motion rules: every hiding/reveal effect is gated behind the `js` class
    that app.js adds to <html>. Without JavaScript, all content is visible.
-   All motion is disabled under prefers-reduced-motion. */
+   All motion is disabled under prefers-reduced-motion, and the 3D layer
+   is never loaded then — the static Everest photo is the backdrop. */
 :root {
   --bg: #031B17;
   --bg-2: #082820;
   --card: #0D3028;
   --card-2: #0A2620;
+  --glass: rgba(13, 48, 40, 0.78);
+  --glass-2: rgba(10, 38, 32, 0.82);
   --accent: #20E6A0;
   --accent-2: #50F5B5;
   --accent-ink: #031B17;
@@ -19,8 +26,9 @@
   --shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
   --radius: 14px;
   --header-h: 60px;
-  --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --serif: "Cormorant Garamond", Georgia, "Iowan Old Style", "Times New Roman", serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
   --ease: cubic-bezier(0.22, 0.9, 0.28, 1);
 }
 
@@ -30,6 +38,8 @@ html[data-mode="light"] {
   --bg-2: #E4EFE9;
   --card: #FFFFFF;
   --card-2: #F4FAF7;
+  --glass: rgba(255, 255, 255, 0.82);
+  --glass-2: rgba(244, 250, 247, 0.88);
   --text: #0E2A23;
   --muted: #4E6B61;
   --border: #CBE3D8;
@@ -63,6 +73,34 @@ body {
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
 }
+
+/* ---- ascent backdrop stage (fixed, behind all content) ---- */
+.terrain-stage {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+}
+.terrain-fallback {
+  position: absolute; inset: 0;
+  background: var(--bg) url("../img/everest-backdrop.jpg") center 32% / cover no-repeat;
+}
+.terrain-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: none; /* shown only when the 3D module reports success */
+}
+html.terrain-live .terrain-canvas { display: block; }
+/* Readability scrim: darkens the backdrop behind text without hiding
+   the terrain. Lighter in light mode so the glass stays airy. */
+.terrain-scrim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(3, 27, 23, 0.62) 0%, rgba(3, 27, 23, 0.18) 22%, rgba(3, 27, 23, 0.10) 55%, rgba(3, 27, 23, 0.55) 100%);
+}
+html[data-mode="light"] .terrain-scrim {
+  background:
+    linear-gradient(180deg, rgba(242, 247, 244, 0.55) 0%, rgba(242, 247, 244, 0.12) 22%, rgba(242, 247, 244, 0.08) 55%, rgba(242, 247, 244, 0.45) 100%);
+}
+/* Every content layer sits above the stage. */
+.site-header, .search-bar, .welcome, .marquee, .wrap, .site-footer { position: relative; z-index: 1; }
 a { color: var(--accent); }
 img, svg { max-width: 100%; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -71,8 +109,9 @@ img, svg { max-width: 100%; }
 .site-header {
   position: sticky; top: 0; z-index: 50;
   height: var(--header-h);
-  background: color-mix(in srgb, var(--bg-2) 92%, transparent);
-  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg-2) 78%, transparent);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border-bottom: 1px solid var(--border);
 }
 .scroll-progress {
@@ -97,6 +136,17 @@ img, svg { max-width: 100%; }
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
 }
 .main-nav a.active, .main-nav a:hover { background: var(--accent); color: var(--accent-ink); }
+/* Decorative scroll-progress readout: metres "climbed" out of 8,848,
+   always labelled as scroll progress. Hidden on narrow screens. */
+.altitude-readout {
+  margin-left: 12px;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 1.5px; white-space: nowrap;
+  color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 10px; background: color-mix(in srgb, var(--card) 60%, transparent);
+}
+.altitude-readout:empty { display: none; }
 .header-tools { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .icon-btn {
   position: relative; border: 1px solid var(--border); background: var(--card);
@@ -113,27 +163,23 @@ img, svg { max-width: 100%; }
 .icon-btn .dot.on { display: block; }
 .menu-btn { display: none; }
 
-/* ---- welcome banner (compact: <= ~25% of desktop viewport height) ---- */
+/* ---- welcome banner: the opening over the sea of clouds ----
+   Full-height, transparent: the terrain shows through behind the
+   thin serif title. Text shadows keep it readable over bright snow. */
 .welcome {
   position: relative; overflow: hidden;
-  border-bottom: 1px solid var(--border);
-  max-height: 25vh; min-height: 190px;
+  border-bottom: 1px solid transparent;
+  min-height: 92vh;
   display: flex; align-items: center;
-  background: linear-gradient(180deg, #0A2620, #031B17);
+  background: transparent;
 }
-html[data-mode="light"] .welcome { background: linear-gradient(180deg, #E4EFE9, #F2F7F4); }
+html[data-mode="light"] .welcome { background: transparent; }
 .welcome-art {
   position: absolute; inset: 0; overflow: hidden; pointer-events: none;
   will-change: transform;
-  background:
-    linear-gradient(100deg, rgba(3,27,23,0.96) 20%, rgba(3,27,23,0.55) 60%, rgba(3,27,23,0.25) 100%),
-    repeating-linear-gradient(90deg, rgba(32,230,160,0.06) 0 46px, rgba(32,230,160,0.0) 46px 92px);
+  background: transparent;
 }
-html[data-mode="light"] .welcome-art {
-  background:
-    linear-gradient(100deg, rgba(242,247,244,0.97) 20%, rgba(242,247,244,0.6) 60%, rgba(242,247,244,0.25) 100%),
-    repeating-linear-gradient(90deg, rgba(3,27,23,0.05) 0 46px, rgba(3,27,23,0) 46px 92px);
-}
+html[data-mode="light"] .welcome-art { background: transparent; }
 .aurora {
   position: absolute; width: 46%; aspect-ratio: 1; border-radius: 50%;
   filter: blur(46px); opacity: 0.45;
@@ -165,19 +211,23 @@ html.js .scales.drawn .draw:nth-child(4) { transition-delay: 0.45s; }
 html.js .scales.drawn .draw:nth-child(5) { transition-delay: 0.55s; }
 html.js .scales.drawn .draw:nth-child(6) { transition-delay: 0.7s; }
 html.js .scales.drawn .draw:nth-child(7) { transition-delay: 0.85s; }
-.welcome-in { max-width: 1180px; margin: 0 auto; padding: 28px 16px; width: 100%; position: relative; }
+.welcome-in { max-width: 1180px; margin: 0 auto; padding: 28px 16px 64px; width: 100%; position: relative; }
 .welcome-kicker {
-  margin: 0 0 6px; padding-left: 20px;
-  font-size: 11px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
+  margin: 0 0 10px; padding-left: 20px;
+  font-family: var(--mono);
+  font-size: 11px; font-weight: 600; letter-spacing: 4px; text-transform: uppercase;
   color: var(--accent);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55);
 }
 .welcome h1 {
-  margin: 0 0 8px; font-size: clamp(30px, 4.8vw, 56px);
-  font-family: var(--serif); font-weight: 700; letter-spacing: -0.5px; line-height: 1.06;
-  border-left: 4px solid var(--accent); padding-left: 16px;
+  margin: 0 0 12px; font-size: clamp(44px, 8vw, 96px);
+  font-family: var(--serif); font-weight: 300; letter-spacing: 0.06em; line-height: 1.02;
+  text-transform: uppercase;
+  border-left: 3px solid var(--accent); padding-left: 16px;
+  text-shadow: 0 3px 26px rgba(0, 0, 0, 0.55);
 }
-.welcome h1 .hl { color: var(--accent); font-style: italic; }
-.welcome p { margin: 0; color: var(--muted); font-size: clamp(13px, 1.6vw, 16px); max-width: 560px; padding-left: 20px; }
+.welcome h1 .hl { color: var(--accent); font-style: italic; font-weight: 400; }
+.welcome p { margin: 0; color: var(--text); font-size: clamp(14px, 1.8vw, 18px); max-width: 600px; padding-left: 20px; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6); }
 .welcome-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-left: 20px; }
 .festival-note {
   display: none; margin-top: 10px; padding-left: 20px;
@@ -193,8 +243,11 @@ html.js .mask-word.in { transform: translateY(0); }
 
 /* ---- marquee strip ---- */
 .marquee {
-  overflow: hidden; border-bottom: 1px solid var(--border);
-  background: var(--bg-2); padding: 9px 0; white-space: nowrap;
+  overflow: hidden; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-2) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 9px 0; white-space: nowrap;
 }
 .marquee-inner { display: inline-flex; animation: marquee 30s linear infinite; will-change: transform; }
 .marquee-inner span {
@@ -203,46 +256,55 @@ html.js .mask-word.in { transform: translateY(0); }
 }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-/* ---- layout ---- */
-.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 16px 60px; }
+/* ---- layout: story cards float over the terrain ---- */
+.wrap { max-width: 1180px; margin: 0 auto; padding: 8vh 16px 14vh; }
 .main-grid { display: grid; grid-template-columns: 1.65fr 1fr; gap: 18px; align-items: start; }
-section.block { margin: 26px 0; scroll-margin-top: calc(var(--header-h) + 12px); }
+/* Generous vertical rhythm: the mountains stay visible between cards. */
+section.block { margin: 13vh 0; scroll-margin-top: calc(var(--header-h) + 12px); }
+section.block:first-child { margin-top: 0; }
 .main-grid section.block { margin: 0; }
 .card {
-  background: var(--card); border: 1px solid var(--border);
+  background: var(--glass); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
 .pad { padding: 18px; }
 .sec-head { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; }
 .sec-head h2 {
-  margin: 0; font-size: clamp(17px, 2.2vw, 22px);
-  font-family: var(--serif); font-weight: 700; letter-spacing: 0.3px;
+  margin: 0; font-size: clamp(24px, 3.4vw, 34px);
+  font-family: var(--serif); font-weight: 400; letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .sec-head .ico { color: var(--accent); font-size: 20px; }
 .sec-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; }
 .sec-actions { margin-left: auto; }
 
-/* ---- chapter tags ---- */
+/* ---- chapter tags: expedition waypoints over the terrain ---- */
 .chapter-tag {
   display: flex; align-items: baseline; gap: 12px;
-  margin: 0 0 10px;
+  margin: 0 0 14px;
 }
 .chapter-num {
-  font-family: var(--serif); font-size: clamp(30px, 4vw, 42px); font-weight: 700;
+  font-family: var(--serif); font-size: clamp(44px, 6vw, 64px); font-weight: 300;
   line-height: 1; color: transparent;
   -webkit-text-stroke: 1.5px var(--accent);
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.35);
 }
 .chapter-label {
-  font-size: 12px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase;
-  color: var(--muted); white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--text); white-space: nowrap;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65);
 }
 .chapter-rule { flex: 1; height: 1px; background: var(--border); align-self: center; }
 
-/* ---- badges ---- */
+/* ---- badges: mono data labels ---- */
 .badge {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
-  border: 1px solid var(--border); color: var(--muted); background: var(--card-2);
+  font-family: var(--mono);
+  font-size: 11px; font-weight: 600; letter-spacing: 1px; padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted); background: var(--glass-2);
 }
 .badge.ok { color: var(--accent); border-color: var(--accent); }
 .badge .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
@@ -367,7 +429,12 @@ html[data-mode="light"] .thumb { background: linear-gradient(135deg, #DCEEE5, #F
 .contact-card.disabled { opacity: 0.65; }
 
 /* ---- footer ---- */
-.site-footer { border-top: 1px solid var(--border); background: var(--bg-2); }
+.site-footer {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-2) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
 .footer-in { max-width: 1180px; margin: 0 auto; padding: 26px 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
 .footer-in nav { display: flex; gap: 14px; margin-left: auto; }
 .footer-in nav a { color: var(--muted); text-decoration: none; font-size: 13px; }
@@ -377,7 +444,10 @@ html[data-mode="light"] .thumb { background: linear-gradient(135deg, #DCEEE5, #F
 /* ---- search ---- */
 .search-bar {
   display: none; border-bottom: 1px solid var(--border);
-  background: var(--bg-2); padding: 12px 16px; position: sticky; top: var(--header-h); z-index: 40;
+  background: color-mix(in srgb, var(--bg-2) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 12px 16px; position: sticky; top: var(--header-h); z-index: 40;
 }
 .search-bar.open { display: block; }
 .search-box { max-width: 1180px; margin: 0 auto; position: relative; }
@@ -456,6 +526,9 @@ html.js a.reveal.in:hover, html.js .today-card.reveal.in:hover { transform: tran
 /* ---- reduced motion: everything static, fully readable ---- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  /* Belt and braces: the 3D module is never loaded under reduced
+     motion, so this only ever hides an already-absent canvas. */
+  .terrain-canvas { display: none !important; }
   .aurora, .marquee-inner { animation: none !important; }
   html.js .reveal, html.js .mask-word { opacity: 1 !important; transform: none !important; transition: none !important; }
   html.js .scales .draw { stroke-dashoffset: 0 !important; transition: none !important; }
@@ -466,6 +539,7 @@ html.js a.reveal.in:hover, html.js .today-card.reveal.in:hover { transform: tran
 @media (max-width: 960px) {
   .main-grid { grid-template-columns: 1fr; }
   .main-nav { display: none; }
+  .altitude-readout { display: none; }
   .menu-btn { display: inline-flex; }
   .main-nav.mobile-open {
     display: flex; position: absolute; top: var(--header-h); left: 0; right: 0;
@@ -473,7 +547,8 @@ html.js a.reveal.in:hover, html.js .today-card.reveal.in:hover { transform: tran
     padding: 10px 16px 16px; margin: 0; z-index: 55;
   }
   .main-nav.mobile-open a { padding: 12px 10px; border-radius: 10px; }
-  .welcome { min-height: 150px; }
+  .welcome { min-height: 78vh; }
+  section.block { margin: 9vh 0; }
   .scales { opacity: 0.16; }
 }
 @media (max-width: 560px) {
@@ -483,6 +558,8 @@ html.js a.reveal.in:hover, html.js .today-card.reveal.in:hover { transform: tran
   .today-cards { grid-template-columns: 1fr 1fr; }
   .thumb { height: 74px; }
   .scales { display: none; }
+  .welcome { min-height: 68vh; }
+  section.block { margin: 7vh 0; }
   /* lighter motion on phones */
   html.js .reveal { transform: translateY(8px); }
   .marquee-inner { animation-duration: 44s; }
