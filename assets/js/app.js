@@ -1,15 +1,27 @@
-/* LawVault v3 — app.js
-   Renders the site from data/site-config.json + data/content.json.
+/* LawVault v4 — app.js
+   Renders the site from data/site-config.json + data/content.json, and
+   runs the editorial motion layer (masked headline reveals, scroll
+   reveals, header parallax, scroll progress, scales illustration draw,
+   chapter numbering).
    Security: every config string is inserted as plain text (textContent),
    never as HTML. Only https:// links are accepted. Theme names must be
-   from the config allowlists. */
+   from the config allowlists.
+   Progressive enhancement: the `js` class is added to <html> first, and
+   every hiding/reveal effect in CSS is gated behind it, so content stays
+   visible if this script fails to load. */
 (function () {
   'use strict';
 
+  document.documentElement.classList.add('js');
+
+  /* Storage keys are kept at their v3 names on purpose, so bookmarks,
+     recent views, theme choices, and checklists carry over from v3. */
   var THEME_KEY = 'lv-theme-v3';
   var BM_KEY = 'lv-bookmarks-v3';
   var RECENT_KEY = 'lv-recent-v3';
+  var CHECK_KEY = 'lv-checklist-v3';
   var TZ = 'Asia/Kolkata';
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- small helpers ---------- */
   function h(tag, cls, text) {
@@ -49,7 +61,7 @@
     return a;
   }
 
-  /* ---------- themes ---------- */
+  /* ---------- themes (unchanged from v3) ---------- */
   function loadThemePrefs(cfg) {
     var d = (cfg.theme || {});
     var p = loadJson(THEME_KEY, {});
@@ -113,7 +125,6 @@
     if (!panel) return;
     panel.innerHTML = '';
     panel.appendChild(h('h3', null, 'Appearance'));
-    // mode row
     var row1 = h('div', 'theme-row');
     row1.appendChild(h('span', null, 'Light theme'));
     var modeT = h('button', 'toggle');
@@ -128,7 +139,6 @@
     });
     row1.appendChild(modeT);
     panel.appendChild(row1);
-    // colour row
     var row2 = h('div', 'theme-row');
     row2.appendChild(h('span', null, 'Colour'));
     var sw = h('div', 'swatches');
@@ -148,7 +158,6 @@
     });
     row2.appendChild(sw);
     panel.appendChild(row2);
-    // auto festival row
     var row3 = h('div', 'theme-row');
     row3.appendChild(h('span', null, 'Festival themes (auto)'));
     var autoT = h('button', 'toggle');
@@ -203,20 +212,6 @@
   }
 
   /* ---------- shared card builders ---------- */
-  function driveCaption() {
-    return h('div', 'search-note', 'Opens in Google Drive ↗');
-  }
-  function sectionHead(icon, title, sub, actionEl) {
-    var head = h('div', 'sec-head');
-    head.appendChild(h('span', 'ico', icon));
-    head.appendChild(h('h2', null, title));
-    if (actionEl) {
-      var wrap = h('div', 'sec-actions');
-      wrap.appendChild(actionEl);
-      head.appendChild(wrap);
-    }
-    return head;
-  }
   function emptyState(title, text) {
     var d = h('div', 'card empty');
     d.appendChild(h('strong', null, title));
@@ -243,7 +238,6 @@
     var s = CFG.site || {};
     var t = document.getElementById('welcomeTitle');
     t.innerHTML = '';
-    // welcomeTitle is "Your LLB Study Space" — highlight the configured word safely
     var full = String(s.welcomeTitle || 'Your LLB Study Space');
     var hl = String(s.welcomeHighlight || 'LLB');
     var idx = full.indexOf(hl);
@@ -256,6 +250,7 @@
       t.textContent = full;
     }
     document.getElementById('welcomeSub').textContent = s.welcomeSubtitle || '';
+    splitMasked(t);
   }
 
   function activeTodayItems() {
@@ -265,7 +260,7 @@
     var now = Date.now();
     return (tn.items || []).filter(function (it) {
       if (it.visible === false) return false;
-      if (!it.publishedAt) return true; // no schedule metadata: treat as active
+      if (!it.publishedAt) return true;
       var t = Date.parse(it.publishedAt);
       if (isNaN(t)) return false;
       return (now - t) < hours * 3600 * 1000;
@@ -489,7 +484,7 @@
     card.appendChild(back);
     sec.appendChild(card);
     recordView({ id: c.id, title: c.title, link: null, sectionLabel: 'Case Laws' });
-    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sec.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
   }
 
   function renderPapers() {
@@ -580,13 +575,13 @@
       var cl = h('div', 'card pad'); cl.style.marginTop = '12px';
       cl.appendChild(h('h3', null, 'Revision checklist'));
       cl.appendChild(h('p', 'sec-sub', ex.checklistNote || 'Stored only in this browser.'));
-      var state = loadJson('lv-checklist-v3', {});
+      var state = loadJson(CHECK_KEY, {});
       ex.checklist.forEach(function (item) {
         var lab = h('label');
         var cb = h('input'); cb.type = 'checkbox';
         cb.checked = !!state[item.id];
         cb.addEventListener('change', function () {
-          state[item.id] = cb.checked; saveJson('lv-checklist-v3', state);
+          state[item.id] = cb.checked; saveJson(CHECK_KEY, state);
         });
         lab.appendChild(cb);
         lab.appendChild(h('span', null, item.label));
@@ -793,7 +788,7 @@
       card.appendChild(ul);
     }
     sec.appendChild(card);
-    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sec.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
   }
 
   /* ---------- header wiring ---------- */
@@ -838,45 +833,146 @@
       if (!savedPanel.contains(e.target) && e.target !== bmBtn) savedPanel.classList.remove('open');
     });
     var backTop = document.getElementById('backTop');
-    window.addEventListener('scroll', function () {
-      backTop.classList.toggle('show', window.scrollY > 600);
-    }, { passive: true });
     backTop.addEventListener('click', function () {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
     });
   }
 
-  function revealOnScroll() {
-    var io = null;
-    if ('IntersectionObserver' in window) {
-      io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
-        });
-      }, { threshold: 0.08 });
-    }
-    function watch(root) {
-      if (!root.querySelectorAll) return;
-      root.querySelectorAll('.reveal:not(.in)').forEach(function (e) {
-        if (io) io.observe(e); else e.classList.add('in');
+  /* ---------- motion layer (v4) ---------- */
+  /* Masked headline reveals: split [data-mask] headings into word masks.
+     Only runs when JS works, and the hiding CSS is gated behind the `js`
+     class, so headings stay readable if anything here fails. */
+  function splitMasked(el) {
+    if (!el || el.getAttribute('data-mask-done')) return;
+    el.setAttribute('data-mask-done', '1');
+    var nodes = Array.prototype.slice.call(el.childNodes);
+    el.innerHTML = '';
+    nodes.forEach(function (node) {
+      var text = node.textContent || '';
+      var cls = node.nodeType === 1 ? (node.className || '') : '';
+      text.split(/(\s+)/).forEach(function (w) {
+        if (!w) return;
+        if (/^\s+$/.test(w)) { el.appendChild(document.createTextNode(' ')); return; }
+        var mask = document.createElement('span');
+        mask.className = 'mask';
+        var inner = document.createElement('span');
+        inner.className = 'mask-word' + (cls ? ' ' + cls : '');
+        inner.textContent = w;
+        mask.appendChild(inner);
+        el.appendChild(mask);
       });
+    });
+  }
+  function splitAllMasks(root) {
+    var list = (root || document).querySelectorAll('[data-mask]');
+    for (var i = 0; i < list.length; i++) splitMasked(list[i]);
+  }
+
+  /* Stagger delay: index of the element among same-type siblings, capped. */
+  function staggerDelay(el, cls, step, cap) {
+    var parent = el.parentNode;
+    if (!parent) return 0;
+    var sibs = parent.querySelectorAll(':scope > .' + cls);
+    var idx = 0;
+    for (var i = 0; i < sibs.length; i++) { if (sibs[i] === el) { idx = i; break; } }
+    return Math.min(idx, cap) * step;
+  }
+
+  var revealIO = null;
+  function observeMotion(root) {
+    if (!root || !root.querySelectorAll) return;
+    var targets = root.querySelectorAll('.reveal:not(.in), .mask-word:not(.in)');
+    targets.forEach(function (e) {
+      if (e.classList.contains('mask-word')) {
+        e.style.transitionDelay = staggerDelay(e.parentNode, 'mask', 55, 8) + 'ms';
+      } else {
+        e.style.transitionDelay = staggerDelay(e, 'reveal', 45, 5) + 'ms';
+      }
+      if (revealIO) revealIO.observe(e); else e.classList.add('in');
+    });
+  }
+  function initMotion() {
+    if ('IntersectionObserver' in window && !REDUCED) {
+      revealIO = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add('in'); revealIO.unobserve(en.target); }
+        });
+      }, { threshold: 0.08, rootMargin: '0px 0px -4% 0px' });
+    } else {
+      revealIO = null; // reduced motion or no IO: observeMotion reveals immediately
     }
-    watch(document);
-    // New cards are rendered dynamically (semester tabs, filters, search),
-    // so observe them too when they are added later.
-    if ('MutationObserver' in window && io) {
+    splitAllMasks(document);
+    observeMotion(document);
+    if ('MutationObserver' in window) {
       var mo = new MutationObserver(function (muts) {
         muts.forEach(function (m) {
           m.addedNodes.forEach(function (n) {
             if (n && n.nodeType === 1) {
-              if (n.classList && n.classList.contains('reveal') && !n.classList.contains('in')) io.observe(n);
-              watch(n);
+              if (n.classList && (n.classList.contains('reveal') || n.classList.contains('mask-word'))) {
+                observeMotion(n.parentNode || document);
+              }
+              observeMotion(n);
             }
           });
         });
       });
       mo.observe(document.body, { childList: true, subtree: true });
     }
+    /* Safety net: nothing may stay hidden if an observer never fires. */
+    setTimeout(function () {
+      document.querySelectorAll('.reveal:not(.in), .mask-word:not(.in)').forEach(function (e) {
+        e.classList.add('in');
+      });
+    }, 2500);
+    /* Scales illustration draws itself once the page is up. */
+    var scales = document.getElementById('scalesSvg');
+    if (scales) {
+      setTimeout(function () { scales.classList.add('drawn'); }, 200);
+    }
+  }
+
+  /* Scroll progress + header parallax, one rAF-throttled handler. */
+  function initScrollMotion() {
+    var progress = document.getElementById('scrollProgress');
+    var backTop = document.getElementById('backTop');
+    var art = document.getElementById('welcomeArt');
+    var welcome = document.getElementById('home');
+    var ticking = false;
+    function update() {
+      ticking = false;
+      var doc = document.documentElement;
+      var max = doc.scrollHeight - window.innerHeight;
+      var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+      if (progress) progress.style.transform = 'scaleX(' + p + ')';
+      if (backTop) backTop.classList.toggle('show', window.scrollY > 600);
+      if (!REDUCED && art && welcome && window.innerWidth > 700) {
+        var r = welcome.getBoundingClientRect();
+        if (r.bottom > 0 && r.top < window.innerHeight) {
+          var prog = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height)));
+          art.style.transform = 'scale(' + (1 + prog * 0.08).toFixed(4) + ') translateY(' + (prog * 18).toFixed(1) + 'px)';
+        }
+      } else if (art) {
+        art.style.transform = '';
+      }
+    }
+    function onScroll() {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    update();
+  }
+
+  /* Chapter numbers follow the applied section order, skipping hidden sections. */
+  function renumberChapters() {
+    var n = 0;
+    document.querySelectorAll('.chapter-tag').forEach(function (tag) {
+      var sec = tag.closest('[data-section]');
+      if (sec && sec.style.display === 'none') return;
+      n++;
+      var num = tag.querySelector('.chapter-num');
+      if (num) num.textContent = String(n).padStart(2, '0');
+    });
   }
 
   function applySectionOrder() {
@@ -893,6 +989,7 @@
         if (el) el.style.display = 'none';
       }
     });
+    renumberChapters();
   }
 
   /* ---------- boot ---------- */
@@ -923,7 +1020,8 @@
       wireSearch();
       SEARCH_INDEX = window.LVSearch.buildIndex(CONTENT);
       applySectionOrder();
-      revealOnScroll();
+      initMotion();
+      initScrollMotion();
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(function () {});
       }

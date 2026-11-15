@@ -1,5 +1,5 @@
-/* LawVault v3 — metadata-only search (search.js).
-   Searches LawVault configuration metadata only. It does NOT index
+/* LawVault v4 — metadata-only search (search.js).
+   Unchanged from v3: searches LawVault configuration metadata only. It does NOT index
    filenames inside Google Drive, because LawVault does not use the
    Drive API. The site shows this limitation next to the search field. */
 (function () {
