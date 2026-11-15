@@ -59,20 +59,75 @@ Apps Script (apps-script/Code.gs, attached to the Sheet)
   shown because no exam date is set.
 - Contact cards: all disabled until real destinations are configured.
 
-## Admin panel — Phase 1 (this build)
+## Admin panel — final (this build)
 
-Fully working: login, dashboard (counts, today's notes, active
-announcements, pending count, recently modified, missing/bad links,
-quick actions), Daily Notes (schedule, 24h expiry, Important flag),
-Announcements (badges, pin, schedule, expiry), Semesters & Subjects,
-and the Activity Log (read-only).
+All modules work, with no placeholders left:
 
-Present in the navigation but honestly marked "coming in the next
-phase" (no faked functionality): Case Laws, Question Papers, Exam
-Preparation, Pending Content, Contact & Feedback, Appearance,
-Website Settings. Their Sheet tabs already exist, and the public site
-already reads them — entries added directly in the Sheet (following
-`SHEET_MODEL.md`) appear on the site.
+- **Login** — administrative code + password, checked server-side by
+  the Apps Script on every request. No Google login needed.
+- **Dashboard** — counts, today's notes, active announcements,
+  pending count, recently modified, missing/bad links, quick actions.
+- **Daily Notes** — schedule, 24h expiry, Important flag.
+- **Announcements** — badges, pin, schedule, expiry.
+- **Semester & Subjects** — semesters 1–7, configured flags, subjects
+  with unit, description, Drive link, order, enable/disable.
+- **Case Laws** — full case summaries (citation, court, year, subject,
+  facts, issues, judgment, ratio decidendi, exam relevance, source
+  link, Important flag), search + subject filter, case-detail preview.
+  The DEMO row stays labelled Demo until replaced with a real case.
+- **Question Papers** — year, semester, subject, exam type, Drive
+  folder link; filters by year/semester/subject, latest year first,
+  duplicate warning on title + year + subject.
+- **Exam Preparation** — resource cards (edit/add/enable/order) plus
+  the exam date setting; empty date = no countdown. Checklist ticks
+  stay browser-local per student.
+- **Pending Content** — Draft → Pending → Verified → Published →
+  Archived workflow with reasons. Publishing is blocked unless the
+  entry is Verified, so unverified material is never official;
+  publishing removes it from the Pending section (the verified
+  material is then added to its proper section).
+- **Contact & Feedback** — the six cards: label, kind, destination,
+  enable/disable, order. Empty destination or disabled = greyed out.
+- **Appearance** — default dark/light mode, accent colour (from the
+  configuration allowlist only), festival auto on/off, festival date
+  ranges and palettes (2027 defaults), preview link, reset to
+  defaults. A visitor's own theme choice always wins over defaults.
+- **Website Settings** — site title, tagline, welcome banner, footer
+  tagline, copyright/disclaimer text, main Drive folder link, exam
+  date, and per-section enable/disable. Navigation links, section
+  order, and search behaviour stay in `data/site-config.json`.
+- **Activity Log** — read-only history of admin actions, including
+  failed logins.
+
+Settings managed through the panel live in the Sheet's `settings`
+tab. In addition to the original keys (`site_title`, `site_tagline`,
+`welcome_title`, `welcome_subtitle`, `footer_tagline`,
+`main_drive_folder`, `default_mode`, `default_color`,
+`festival_auto`, `exam_date`), the panel writes:
+
+- `footer_legal` — footer copyright/disclaimer text (empty = default).
+- `section_<id>_enabled` — `TRUE`/`FALSE` per section id (`today`,
+  `semesters`, `cases`, `papers`, `exam`, `pending`, `contact`).
+- `festival_<id>_start`, `festival_<id>_end` — MM-DD date ranges.
+- `festival_<id>_accent`, `festival_<id>_accent2` — `#rrggbb` colours.
+
+The public site prefers Sheet settings over `data/site-config.json`
+for all of the above, and falls back to the config file when a Sheet
+key is absent or invalid — a typo in the Sheet can never break the
+theme or hide the site.
+
+## Intentionally not built
+
+- **Role management (Owner / Editor / Viewer).** The panel has one
+  shared administrative code + password, checked by the script.
+  A single shared credential cannot express roles, so roles were
+  deliberately left out rather than faked. If roles are ever wanted,
+  the login system itself has to change first (per-admin credentials).
+- **Telegram management bot.** Still a skeleton (`bot/`, `worker/`),
+  unchanged. It needs a bot token, the owner's Telegram user id, a
+  Cloudflare account, and a narrowly scoped GitHub token — all as
+  Cloudflare secrets, never in chat or in this repository. See
+  `bot/SETUP.md`.
 
 ## Setup (owner steps)
 
@@ -132,21 +187,22 @@ public.
 
 ## Settings the administrator must configure
 
-1. **Festival dates** (`data/site-config.json` → `theme.festivals`):
-   Diwali, Holi, Onam, Eid al-Fitr (and Pongal) move every year — confirm
-   the ranges each year. Wrong dates only affect the automatic theme.
-   The corrected 2027 dates are already in this file.
+1. **Festival dates** (admin panel → Appearance): Diwali, Holi, Onam,
+   Eid al-Fitr (and Pongal) move every year — confirm the ranges each
+   year. Wrong dates only affect the automatic theme. The corrected
+   2027 dates are the defaults, from `data/site-config.json`; Sheet
+   values override them.
 2. **Today's Notes**: add via the admin panel (or `todayNotes.items`
    in the fallback JSON). Items expire 24 hours after publishing
    (Asia/Kolkata) and hide automatically.
 3. **Case laws / papers / pending**: replace the DEMO entries with real
-   ones (or delete them). Never invent citations, years, or counts.
-4. **Exam date** (`exam_date` in the Sheet's `settings` tab, or
-   `examPreparation.examDate` in the fallback JSON, e.g. `"2027-01-15"`):
-   only then does the countdown appear.
+   ones (or delete them) via the admin panel. Never invent citations,
+   years, or counts.
+4. **Exam date** (admin panel → Exam Preparation or Website Settings,
+   or `examPreparation.examDate` in the fallback JSON, e.g.
+   `"2027-01-15"`): only then does the countdown appear.
 5. **Contacts**: set a destination (must start with `https://`) and
-   enable the card — via the Sheet's `contacts` tab for now (panel
-   module in the next phase).
+   enable the card, via the admin panel → Contact & Feedback.
 6. **Telegram bot** (later): needs a bot token, the owner's Telegram user
    id, a Cloudflare account, and a narrowly scoped GitHub token — all as
    Cloudflare secrets, never in chat or in this repository. See

@@ -139,60 +139,90 @@
           <div id="subjList"><p class="sec-sub">Loading…</p></div>
         </section>
 
-        <!-- Case Laws (placeholder) -->
+        <!-- Case Laws -->
         <section class="module-view" id="view-cases" style="display:none">
-          <div class="card pad empty">
-            <strong>Case Laws management is coming in the next phase.</strong>
-            The Case Law Library on the public site already reads from the <code>case_laws</code> tab of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear. This panel does not manage them yet — nothing here is faked.
+          <p class="sec-sub">Case summaries for the Case Law Library. Enter only real cases with real citations — never invent facts, citations, or judgments. The DEMO row stays clearly labelled until you replace it with a real case.</p>
+          <div class="filter-bar">
+            <label class="field inline"><span>Search</span>
+              <input id="caseSearch" type="search" placeholder="Search case name…" aria-label="Search cases">
+            </label>
+            <label class="field inline"><span>Subject</span>
+              <select id="caseSubjectFilter" aria-label="Filter cases by subject"></select>
+            </label>
+            <button class="btn small" id="addCaseBtn" type="button">+ Add Case Law</button>
           </div>
+          <div id="listCases"><p class="sec-sub">Loading…</p></div>
         </section>
 
-        <!-- Question Papers (placeholder) -->
+        <!-- Question Papers -->
         <section class="module-view" id="view-papers" style="display:none">
-          <div class="card pad empty">
-            <strong>Question Papers management is coming in the next phase.</strong>
-            The Previous Year Papers section already reads from the <code>papers</code> tab of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear. This panel does not manage them yet — nothing here is faked.
+          <p class="sec-sub">Previous year question papers. Upload the paper to Google Drive first, then paste the folder link here. Latest year first.</p>
+          <div class="filter-bar">
+            <label class="field inline"><span>Year</span>
+              <select id="paperYearFilter" aria-label="Filter papers by year"></select>
+            </label>
+            <label class="field inline"><span>Semester</span>
+              <select id="paperSemFilter" aria-label="Filter papers by semester"></select>
+            </label>
+            <label class="field inline"><span>Subject</span>
+              <input id="paperSubjectFilter" type="search" placeholder="Filter by subject…" aria-label="Filter papers by subject">
+            </label>
+            <button class="btn small" id="addPaperBtn" type="button">+ Add Question Paper</button>
           </div>
+          <div id="listPapers"><p class="sec-sub">Loading…</p></div>
         </section>
 
-        <!-- Exam Preparation (placeholder) -->
+        <!-- Exam Preparation -->
         <section class="module-view" id="view-exam" style="display:none">
-          <div class="card pad empty">
-            <strong>Exam Preparation management is coming in the next phase.</strong>
-            The Exam Preparation section already reads from the <code>exam_prep</code> tab (and the <code>exam_date</code> setting) of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear. This panel does not manage them yet — nothing here is faked. Revision checklist ticks stay in each student's own browser and are never managed here.
+          <div class="card pad">
+            <h2>Exam date</h2>
+            <p class="sec-sub">The countdown on the public site appears only when an exam date is set. Leave empty for no countdown.</p>
+            <div class="filter-bar">
+              <label class="field inline"><span>Exam date</span>
+                <input id="examDateInput" type="date" aria-label="Exam date">
+              </label>
+              <button class="btn small" id="examDateSave" type="button">Save exam date</button>
+            </div>
+            <p class="sec-sub" id="examDateNote"></p>
           </div>
+          <p class="sec-sub">Resource cards shown in Exam Preparation. Revision checklist ticks stay in each student's own browser and are never managed here.</p>
+          <div class="row-between">
+            <span></span>
+            <button class="btn small" id="addExamBtn" type="button">+ Add Resource</button>
+          </div>
+          <div id="listExam"><p class="sec-sub">Loading…</p></div>
         </section>
 
-        <!-- Pending Content (placeholder) -->
+        <!-- Pending Content -->
         <section class="module-view" id="view-pending" style="display:none">
-          <div class="card pad empty">
-            <strong>Pending Content review is coming in the next phase.</strong>
-            The Pending &amp; Unverified section already reads from the <code>pending</code> tab of the Google Sheet, so entries added directly in the Sheet (following SHEET_MODEL.md) will appear with their warning styling. This panel does not manage them yet — nothing here is faked.
+          <p class="sec-sub">Unverified material. Workflow: Draft → Pending → Verified → Published. Only Verified content can be published — publishing directly from Draft or Pending is blocked, so incomplete material is never presented as official. Publishing removes the entry from the Pending section: add the verified material to its proper section (notes, case laws, or papers) so students can find it. Archived entries are kept but hidden. Use Delete for rejected content.</p>
+          <div class="row-between">
+            <span></span>
+            <button class="btn small" id="addPendingBtn" type="button">+ Add Pending Content</button>
           </div>
+          <div id="listPending"><p class="sec-sub">Loading…</p></div>
         </section>
 
-        <!-- Contact & Feedback (placeholder) -->
+        <!-- Contact & Feedback -->
         <section class="module-view" id="view-contacts" style="display:none">
-          <div class="card pad empty">
-            <strong>Contact &amp; Feedback management is coming in the next phase.</strong>
-            The Contact &amp; Feedback section already reads from the <code>contacts</code> tab of the Google Sheet. Cards stay greyed out until a destination is set and the card is enabled. This panel does not manage them yet — nothing here is faked.
+          <p class="sec-sub">The six contact cards on the public site. A card with no destination, or a disabled card, appears greyed out with "Not configured yet." Destinations must start with https://.</p>
+          <div class="row-between">
+            <span></span>
+            <button class="btn small" id="addContactBtn" type="button">+ Add Contact Card</button>
           </div>
+          <div id="listContacts"><p class="sec-sub">Loading…</p></div>
         </section>
 
-        <!-- Appearance (placeholder) -->
+        <!-- Appearance -->
         <section class="module-view" id="view-appearance" style="display:none">
-          <div class="card pad empty">
-            <strong>Appearance management is coming in the next phase.</strong>
-            The default theme, accent colour, and automatic festival themes already read from the <code>settings</code> tab of the Google Sheet (<code>default_mode</code>, <code>default_color</code>, <code>festival_auto</code>). Festival date ranges still live in <code>data/site-config.json</code>. This panel does not manage them yet — nothing here is faked.
-          </div>
+          <p class="sec-sub">Default theme, accent colour, and automatic festival themes. These are defaults only — a visitor's own theme choice in their browser always wins. Changes apply on the next public-site load.</p>
+          <div id="appearanceForm"><p class="sec-sub">Loading…</p></div>
         </section>
 
-        <!-- Website Settings (placeholder) -->
+        <!-- Website Settings -->
         <section class="module-view" id="view-settings" style="display:none">
-          <div class="card pad empty">
-            <strong>Website Settings management is coming in the next phase.</strong>
-            The site title, welcome banner, footer text, and main Drive folder link already read from the <code>settings</code> tab of the Google Sheet. Navigation and section order still live in <code>data/site-config.json</code>. This panel does not manage them yet — nothing here is faked.
-          </div>
+          <p class="sec-sub">General site configuration, stored in the Sheet's settings tab. Navigation links, section order, and search behaviour stay in data/site-config.json and are not managed here.</p>
+          <div id="settingsForm"><p class="sec-sub">Loading…</p></div>
         </section>
 
         <!-- Activity Log -->
