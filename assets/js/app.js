@@ -1,12 +1,13 @@
-/* LawVault v6 — app.js
+/* LawVault v5 — app.js
    Renders the site from data/site-config.json + data/content.json, and
-   runs the Delta × VineWinner presentation layer (preloader, particles,
-   spotlight, curtain transitions, scroll reveals, notifications popup,
-   PWA install guidance, slide-in panels).
-   v6 is a UI redesign of the v5 public site only: the data layer below
-   (Google Sheets gviz reading with local JSON fallback), the theme and
-   festival engine, search, bookmarks, and publish/expiry rules are
-   functionally identical to v5. The admin panel is unchanged.
+   runs the editorial motion layer (masked headline reveals, scroll
+   reveals, header parallax, scroll progress, scales illustration draw,
+   chapter numbering).
+   v5 adds a Google Sheets data layer: when data/sheets-config.json has
+   enabled=true and a sheetId, content is read from that Sheet instead
+   of the local JSON files, tab by tab, with the local files kept as a
+   silent fallback for any tab that fails to load. See the "Google
+   Sheets data layer" section below and SHEET_MODEL.md.
    Security: every config string is inserted as plain text (textContent),
    never as HTML. Only https:// links are accepted. Theme names must be
    from the config allowlists.
@@ -24,29 +25,8 @@
   var BM_KEY = 'lv-bookmarks-v3';
   var RECENT_KEY = 'lv-recent-v3';
   var CHECK_KEY = 'lv-checklist-v3';
-  var MOTION_KEY = 'lv-motion-v3';
   var TZ = 'Asia/Kolkata';
   var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /* Motion preference: the OS reduced-motion setting always wins; the
-     visitor can additionally pause ambient motion from the appearance
-     panel. Stored separately from the theme prefs. */
-  function motionPrefPaused() {
-    try {
-      var raw = localStorage.getItem(MOTION_KEY);
-      return raw ? !!JSON.parse(raw).paused : false;
-    } catch (e) { return false; }
-  }
-  function saveMotionPref(paused) {
-    try { localStorage.setItem(MOTION_KEY, JSON.stringify({ paused: !!paused })); } catch (e) {}
-  }
-  function applyMotionPref() {
-    document.body.classList.toggle('motion-paused', motionPrefPaused());
-  }
-  function motionAllowed() {
-    return !REDUCED && !document.body.classList.contains('motion-paused');
-  }
-  applyMotionPref();
 
   /* ---------- small helpers ---------- */
   function h(tag, cls, text) {
@@ -108,21 +88,6 @@
     }
     return null;
   }
-  function hexToRgb(hex) {
-    var m = /^#([0-9a-fA-F]{6})$/.exec(String(hex || '').trim());
-    if (!m) return null;
-    var n = parseInt(m[1], 16);
-    return ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255);
-  }
-  /* The effective accent colour, for the particles canvas. Refreshed
-     whenever the theme is applied; falls back to emerald. */
-  var PARTICLE_RGB = '32, 230, 160';
-  function refreshParticleRgb() {
-    try {
-      var v = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim();
-      if (v) PARTICLE_RGB = v;
-    } catch (e) {}
-  }
   function applyTheme(cfg) {
     var prefs = loadThemePrefs(cfg);
     var fest = prefs.auto ? festivalForToday(cfg, new Date()) : null;
@@ -130,21 +95,6 @@
     root.setAttribute('data-mode', prefs.mode);
     root.setAttribute('data-color', prefs.color);
     root.setAttribute('data-festival', fest ? fest.id : 'none');
-    /* Festival palettes come from the config (Sheet settings may
-       override them). Applied as inline vars so a Sheet palette edit
-       actually takes effect; the CSS festival layers are the fallback
-       when a value is missing or invalid. Without a festival, the
-       inline vars are removed so the manual colour layers apply. */
-    if (fest && hexToRgb(fest.accent)) {
-      root.style.setProperty('--accent', fest.accent);
-      if (hexToRgb(fest.accent2)) root.style.setProperty('--accent-2', fest.accent2);
-      root.style.setProperty('--accent-rgb', hexToRgb(fest.accent));
-    } else {
-      root.style.removeProperty('--accent');
-      root.style.removeProperty('--accent-2');
-      root.style.removeProperty('--accent-rgb');
-    }
-    refreshParticleRgb();
     var note = document.getElementById('festivalNote');
     if (note) {
       if (fest) {
@@ -158,20 +108,10 @@
   function syncThemePanel(cfg, prefs, fest) {
     var panel = document.getElementById('themePanel');
     if (!panel) return;
-    var colors = (cfg.theme && cfg.theme.colors) || [];
-    var colorName = 'Emerald';
-    colors.forEach(function (c) { if (c.id === prefs.color) colorName = c.name; });
     var modeT = panel.querySelector('[data-tmode]');
     if (modeT) {
+      modeT.textContent = prefs.mode === 'light' ? 'Light' : 'Dark';
       modeT.setAttribute('aria-checked', prefs.mode === 'light' ? 'true' : 'false');
-      var lbl = modeT.querySelector('[data-tmode-label]');
-      if (lbl) lbl.textContent = prefs.mode === 'light' ? '☀️ Light active' : '🌙 Dark active';
-    }
-    var modeSub = panel.querySelector('[data-modesub]');
-    if (modeSub) {
-      modeSub.textContent = prefs.mode === 'light'
-        ? 'Light — Parchment & Crema (' + colorName + ')'
-        : 'Dark — Deep Cellar & ' + colorName;
     }
     panel.querySelectorAll('.swatch').forEach(function (s) {
       s.classList.toggle('active', s.getAttribute('data-color') === prefs.color && !fest);
@@ -184,64 +124,36 @@
         ? (fest ? 'Auto — ' + fest.name + ' active' : 'Auto — no festival today')
         : 'Auto off';
     }
-    var motionT = panel.querySelector('[data-tmotion]');
-    if (motionT) motionT.setAttribute('aria-checked', motionPrefPaused() ? 'true' : 'false');
   }
   function buildThemePanel(cfg) {
     var panel = document.getElementById('themePanel');
     if (!panel) return;
     panel.innerHTML = '';
-    var head = h('div', 'panel-head');
-    var headTx = h('div');
-    headTx.appendChild(h('h3', null, 'Appearance'));
-    headTx.appendChild(h('p', 'panel-sub', 'Theme, colour, festivals, motion'));
-    head.appendChild(headTx);
-    var close = h('button', 'icon-btn small', '✕');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Close appearance settings');
-    close.addEventListener('click', closePanels);
-    head.appendChild(close);
-    panel.appendChild(head);
-
-    /* Theme mode */
-    var card1 = h('div', 'panel-card');
+    panel.appendChild(h('h3', null, 'Appearance'));
     var row1 = h('div', 'theme-row');
-    var tx1 = h('div');
-    tx1.appendChild(h('h4', null, 'Theme Mode'));
-    var sub = h('p', 'panel-desc', '');
-    sub.setAttribute('data-modesub', '1');
-    tx1.appendChild(sub);
-    row1.appendChild(tx1);
-    var modeT = h('button', 'mode-toggle-btn');
+    row1.appendChild(h('span', null, 'Light theme'));
+    var modeT = h('button', 'toggle');
     modeT.type = 'button';
     modeT.setAttribute('data-tmode', '1');
     modeT.setAttribute('role', 'switch');
     modeT.setAttribute('aria-label', 'Toggle light theme');
-    modeT.appendChild(h('span', null, '🌙 Dark / ☀️ Light')).setAttribute('data-tmode-label', '1');
     modeT.addEventListener('click', function () {
       var p = loadThemePrefs(cfg);
       p.mode = p.mode === 'light' ? 'dark' : 'light';
       saveThemePrefs(p); applyTheme(cfg);
     });
     row1.appendChild(modeT);
-    card1.appendChild(row1);
-    panel.appendChild(card1);
-
-    /* Accent colour */
-    var card2 = h('div', 'panel-card');
-    card2.appendChild(h('h4', null, 'Accent Colour'));
-    card2.appendChild(h('p', 'panel-desc', 'Each colour restyles the whole site, including particles and glow.'));
+    panel.appendChild(row1);
+    var row2 = h('div', 'theme-row');
+    row2.appendChild(h('span', null, 'Colour'));
     var sw = h('div', 'swatches');
     (cfg.theme.colors || []).forEach(function (c) {
       var b = h('button', 'swatch');
       b.type = 'button';
       b.setAttribute('data-color', c.id);
+      b.title = c.name;
       b.setAttribute('aria-label', c.name + ' colour');
-      var dot = h('span', 'swatch-dot');
-      dot.style.background = c.swatch;
-      b.appendChild(dot);
-      b.appendChild(h('span', 'swatch-name', c.name));
-      b.appendChild(h('span', 'swatch-hex', c.swatch));
+      b.style.background = c.swatch;
       b.addEventListener('click', function () {
         var p = loadThemePrefs(cfg);
         p.color = c.id;
@@ -249,16 +161,10 @@
       });
       sw.appendChild(b);
     });
-    card2.appendChild(sw);
-    panel.appendChild(card2);
-
-    /* Festival themes */
-    var card3 = h('div', 'panel-card');
+    row2.appendChild(sw);
+    panel.appendChild(row2);
     var row3 = h('div', 'theme-row');
-    var tx3 = h('div');
-    tx3.appendChild(h('h4', null, 'Festival themes (auto)'));
-    tx3.appendChild(h('p', 'panel-desc', 'Auto-activates on the configured festival dates.'));
-    row3.appendChild(tx3);
+    row3.appendChild(h('span', null, 'Festival themes (auto)'));
     var autoT = h('button', 'toggle');
     autoT.type = 'button';
     autoT.setAttribute('data-tauto', '1');
@@ -270,37 +176,12 @@
       saveThemePrefs(p); applyTheme(cfg);
     });
     row3.appendChild(autoT);
-    card3.appendChild(row3);
-    var stRow = h('div', 'festival-status');
-    stRow.appendChild(h('span', null, 'Status:'));
-    var st = h('span', 'accent-text');
+    panel.appendChild(row3);
+    var st = h('div', 'search-note');
     st.setAttribute('data-autostate', '1');
-    stRow.appendChild(st);
-    card3.appendChild(stRow);
-    panel.appendChild(card3);
-
-    /* Motion */
-    var card4 = h('div', 'panel-card');
-    var row4 = h('div', 'theme-row');
-    var tx4 = h('div');
-    tx4.appendChild(h('h4', null, 'Reduce motion'));
-    tx4.appendChild(h('p', 'panel-desc', 'Pauses particles, glow, reveals and the ticker. Your system reduced-motion setting always applies too.'));
-    row4.appendChild(tx4);
-    var motionT = h('button', 'toggle');
-    motionT.type = 'button';
-    motionT.setAttribute('data-tmotion', '1');
-    motionT.setAttribute('role', 'switch');
-    motionT.setAttribute('aria-label', 'Toggle reduced motion');
-    motionT.addEventListener('click', function () {
-      saveMotionPref(!motionPrefPaused());
-      applyMotionPref();
-      syncThemePanel(cfg, loadThemePrefs(cfg), festivalForToday(cfg, new Date()));
-    });
-    row4.appendChild(motionT);
-    card4.appendChild(row4);
-    panel.appendChild(card4);
-
-    panel.appendChild(h('p', 'search-note', 'Festival dates are defaults — confirm them each year in data/site-config.json.'));
+    panel.appendChild(st);
+    var note = h('div', 'search-note', 'Festival dates are defaults — confirm them each year in data/site-config.json.');
+    panel.appendChild(note);
   }
 
   /* ---------- bookmarks & recently viewed ---------- */
@@ -330,68 +211,9 @@
       b.classList.toggle('saved', saved);
       b.innerHTML = saved ? '★' : '☆';
       b.title = saved ? 'Remove bookmark' : 'Bookmark this';
-      updateSavedBadge();
-      showToast(saved ? 'Bookmarked — find it under ☆ in the header.' : 'Bookmark removed.');
       renderSaved();
     });
     return b;
-  }
-  function updateSavedBadge() {
-    var badge = document.getElementById('savedCount');
-    if (!badge) return;
-    var n = getBookmarks().length;
-    badge.textContent = n > 99 ? '99+' : String(n);
-    badge.classList.toggle('on', n > 0);
-  }
-
-  /* ---------- toast ---------- */
-  var toastTimer = null;
-  function showToast(msg) {
-    var banner = document.getElementById('toastBanner');
-    var text = document.getElementById('toastMessage');
-    if (!banner || !text) return;
-    text.textContent = msg;
-    banner.classList.add('show');
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { banner.classList.remove('show'); }, 2600);
-  }
-
-  /* ---------- slide-in panels ---------- */
-  function openPanel(which) {
-    closePanels();
-    var panel = document.getElementById(which === 'theme' ? 'themePanel' : 'savedPanel');
-    var backdrop = document.getElementById(which === 'theme' ? 'themeBackdrop' : 'savedBackdrop');
-    if (panel) panel.classList.add('open');
-    if (backdrop) backdrop.hidden = false;
-  }
-  function closePanels() {
-    ['themePanel', 'savedPanel'].forEach(function (id) {
-      var p = document.getElementById(id);
-      if (p) p.classList.remove('open');
-    });
-    ['themeBackdrop', 'savedBackdrop'].forEach(function (id) {
-      var b = document.getElementById(id);
-      if (b) b.hidden = true;
-    });
-  }
-
-  /* ---------- curtain wipe transition ---------- */
-  var wipeTimeoutA = null, wipeTimeoutB = null;
-  function withCurtain(label, fn) {
-    var curtain = document.getElementById('curtainWipe');
-    if (!curtain || !motionAllowed()) { fn(); return; }
-    var labelEl = document.getElementById('curtainLabel');
-    if (labelEl && label) labelEl.textContent = label;
-    if (wipeTimeoutA) clearTimeout(wipeTimeoutA);
-    if (wipeTimeoutB) clearTimeout(wipeTimeoutB);
-    curtain.classList.remove('wiping-out');
-    curtain.classList.add('wiping-in');
-    wipeTimeoutA = setTimeout(function () {
-      fn();
-      curtain.classList.remove('wiping-in');
-      curtain.classList.add('wiping-out');
-      wipeTimeoutB = setTimeout(function () { curtain.classList.remove('wiping-out'); }, 500);
-    }, 420);
   }
 
   /* ---------- shared card builders ---------- */
@@ -476,23 +298,21 @@
         var grid = h('div', 'today-cards');
         items.forEach(function (it) {
           var card = h('div', 'card today-card reveal');
-          card.setAttribute('data-tilt', '1');
-          var main = h('div', 'today-main');
-          var tile = h('span', 'note-tile', String(it.title || '?').charAt(0).toUpperCase());
-          main.appendChild(tile);
+          var th = h('div', 'thumb');
+          th.appendChild(h('span', null, String(it.title || '?').charAt(0).toUpperCase()));
+          card.appendChild(th);
           var body = h('div', 'today-body');
           body.appendChild(h('h3', null, it.title));
           body.appendChild(h('p', null, it.description || ''));
-          main.appendChild(body);
-          card.appendChild(main);
           var acts = h('div', 'today-actions');
           var url = safeUrl(it.link);
           if (url) {
-            acts.appendChild(bookmarkBtn(it.id));
             acts.appendChild(driveLink(url, 'Open Notes ↗', true));
+            acts.appendChild(bookmarkBtn(it.id));
             recordViewOnClick(acts, { id: it.id, title: it.title, link: url, sectionLabel: "Today's Notes" });
           }
-          card.appendChild(acts);
+          body.appendChild(acts);
+          card.appendChild(body);
           grid.appendChild(card);
         });
         wrap.appendChild(grid);
@@ -516,13 +336,15 @@
     list.forEach(function (u) {
       var li = h('li');
       li.appendChild(h('span', 'tdot'));
-      var meta = h('div', 'update-meta');
-      if (u.publishedAt) meta.appendChild(h('time', null, fmtDT(u.publishedAt)));
+      var hh = h('h4');
+      hh.appendChild(h('span', null, u.title));
+      var meta = h('span');
       if (u.important) meta.appendChild(h('span', 'badge ok', 'Important'));
       else if (u.publishedAt && Date.now() - Date.parse(u.publishedAt) < 24 * 3600 * 1000)
         meta.appendChild(h('span', 'badge ok', 'New'));
-      li.appendChild(meta);
-      li.appendChild(h('h4', null, u.title));
+      if (u.publishedAt) meta.appendChild(h('time', null, ' ' + fmtDT(u.publishedAt)));
+      hh.appendChild(meta);
+      li.appendChild(hh);
       if (u.description) li.appendChild(h('p', null, u.description));
       ul.appendChild(li);
     });
@@ -637,9 +459,6 @@
   }
 
   function openCaseDetail(c) {
-    withCurtain(c.title, function () { showCaseDetail(c); });
-  }
-  function showCaseDetail(c) {
     var sec = document.getElementById('caseDetail');
     sec.style.display = 'block';
     sec.innerHTML = '';
@@ -735,28 +554,15 @@
       return;
     }
     if (ex.examDate) {
-      var cd = h('div', 'card countdown-card');
-      var cdTx = h('div');
-      cdTx.appendChild(h('p', 'countdown-label', 'Exam countdown'));
+      var cd = h('div', 'card pad');
+      cd.appendChild(h('div', 'sec-sub', 'Exam countdown'));
       var num = h('div', 'countdown');
-      cdTx.appendChild(num);
-      cd.appendChild(cdTx);
-      var cdNum = h('div');
-      var big = h('span', 'countdown-big', '—');
-      cdNum.appendChild(big);
-      cdNum.appendChild(h('p', 'countdown-sub', 'days to go'));
-      cd.appendChild(cdNum);
-      wrap.appendChild(cd);
+      cd.appendChild(num); wrap.appendChild(cd);
       (function tick() {
         var ms = Date.parse(ex.examDate) - Date.now();
-        if (ms > 0) {
-          var days = Math.floor(ms / 86400000);
-          num.textContent = days + ' days to go';
-          big.textContent = String(days);
-        } else {
-          num.textContent = 'Exam date has passed.';
-          big.textContent = '0';
-        }
+        num.textContent = ms > 0
+          ? Math.floor(ms / 86400000) + ' days to go'
+          : 'Exam date has passed.';
       })();
     }
     var grid = h('div', 'grid');
@@ -771,7 +577,7 @@
     });
     wrap.appendChild(grid);
     if ((ex.checklist || []).length) {
-      var cl = h('div', 'card pad checklist');
+      var cl = h('div', 'card pad'); cl.style.marginTop = '12px';
       cl.appendChild(h('h3', null, 'Revision checklist'));
       cl.appendChild(h('p', 'sec-sub', ex.checklistNote || 'Stored only in this browser.'));
       var state = loadJson(CHECK_KEY, {});
@@ -866,99 +672,41 @@
     var anns = (CONTENT.announcements || []).filter(function (a) { return a.visible !== false; });
     var bell = document.getElementById('bellDot');
     if (bell) bell.classList.toggle('on', anns.length > 0);
-    renderNotifPopup(anns);
     var bar = document.getElementById('announceBar');
     return { anns: anns, bar: bar };
-  }
-  function renderNotifPopup(anns) {
-    var list = document.getElementById('notifList');
-    var count = document.getElementById('notifCount');
-    if (!list) return;
-    if (count) count.textContent = anns.length + ' active';
-    list.innerHTML = '';
-    if (!anns.length) {
-      list.appendChild(h('div', 'notif-empty', 'No announcements right now.'));
-      return;
-    }
-    anns.forEach(function (a) {
-      var row = h('button', 'notif-row');
-      row.type = 'button';
-      var meta = h('div', 'notif-meta');
-      if (a.publishedAt) meta.appendChild(h('span', null, fmtDT(a.publishedAt)));
-      if (a.important) meta.appendChild(h('span', 'badge ok', 'Important'));
-      else if (a.publishedAt && Date.now() - Date.parse(a.publishedAt) < 24 * 3600 * 1000)
-        meta.appendChild(h('span', 'badge ok', 'New'));
-      row.appendChild(meta);
-      row.appendChild(h('h4', null, a.title));
-      if (a.description) row.appendChild(h('p', null, a.description));
-      row.addEventListener('click', function () {
-        toggleNotifPopup(false);
-        location.hash = '#updates';
-      });
-      list.appendChild(row);
-    });
-  }
-  function toggleNotifPopup(force) {
-    var popup = document.getElementById('notifPopup');
-    var bell = document.getElementById('bellBtn');
-    if (!popup) return;
-    var open = force !== undefined ? force : !popup.classList.contains('open');
-    popup.classList.toggle('open', open);
-    if (bell) bell.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
   function renderSaved() {
     var panel = document.getElementById('savedPanel');
     if (!panel) return;
     panel.innerHTML = '';
-    var head = h('div', 'panel-head');
-    var headTx = h('div');
-    headTx.appendChild(h('h3', null, 'Saved & Recent'));
-    headTx.appendChild(h('p', 'panel-sub', 'Stored only in this browser'));
-    head.appendChild(headTx);
-    var close = h('button', 'icon-btn small', '✕');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Close saved and recent');
-    close.addEventListener('click', closePanels);
-    head.appendChild(close);
-    panel.appendChild(head);
+    panel.appendChild(h('h3', null, 'Saved & recent'));
     var bms = getBookmarks();
     var items = [];
     if (SEARCH_INDEX.length && bms.length) {
       items = SEARCH_INDEX.filter(function (i) { return bms.indexOf(i.id) !== -1; });
     }
-    var bmTitle = h('h4', 'saved-sec-title', 'Bookmarks (★)');
     if (items.length) {
-      var clear = h('button', 'clear-btn', 'Clear all');
-      clear.type = 'button';
-      clear.addEventListener('click', function () {
-        saveJson(BM_KEY, []);
-        updateSavedBadge();
-        showToast('All bookmarks cleared.');
-        renderSaved();
-      });
-      bmTitle.appendChild(clear);
-    }
-    panel.appendChild(bmTitle);
-    if (items.length) {
+      panel.appendChild(h('div', 'search-note', 'Bookmarks'));
       items.forEach(function (i) { panel.appendChild(savedRow(i)); });
-    } else {
-      panel.appendChild(h('p', 'search-note', 'Nothing saved yet. Tap ☆ on any card to bookmark it.'));
     }
     var rec = loadJson(RECENT_KEY, []);
-    panel.appendChild(h('h4', 'saved-sec-title muted', 'Recently viewed'));
     if (rec.length) {
+      panel.appendChild(h('div', 'search-note', 'Recently viewed'));
       rec.slice(0, 6).forEach(function (i) { panel.appendChild(savedRow(i)); });
-    } else {
-      panel.appendChild(h('p', 'search-note', 'Items you open will appear here.'));
     }
-    updateSavedBadge();
+    if (!items.length && !rec.length) {
+      panel.appendChild(h('div', 'search-note', 'Nothing saved yet. Tap ☆ on any card to bookmark it.'));
+    }
   }
   function savedRow(i) {
-    var d = h('div', 'saved-row');
+    var d = h('div');
+    d.style.padding = '8px 0';
+    d.style.borderBottom = '1px solid var(--border)';
     if (i.link && safeUrl(i.link)) {
       var a = h('a', null, i.title);
       a.href = i.link; a.target = '_blank'; a.rel = 'noopener';
+      a.style.color = 'var(--text)'; a.style.textDecoration = 'none'; a.style.fontSize = '14px';
       d.appendChild(a);
     } else {
       d.appendChild(h('span', null, i.title));
@@ -1019,28 +767,8 @@
     document.addEventListener('click', function (e) {
       if (!sugg.contains(e.target) && e.target !== input) closeSugg();
     });
-    var closeBtn = document.getElementById('searchCloseBtn');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', function () {
-        bar.classList.remove('open');
-        closeSugg();
-      });
-    }
-    document.addEventListener('keydown', function (e) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        bar.classList.add('open');
-        input.focus();
-      } else if (e.key === 'Escape' && bar.classList.contains('open') && document.activeElement !== input) {
-        bar.classList.remove('open');
-        closeSugg();
-      }
-    });
   }
   function showSearchResults(q) {
-    withCurtain('Search: ' + q, function () { showSearchResultsNow(q); });
-  }
-  function showSearchResultsNow(q) {
     var sec = document.getElementById('searchResults');
     sec.style.display = 'block';
     sec.innerHTML = '';
@@ -1098,305 +826,36 @@
       if (open) document.getElementById('searchInput').focus();
     });
     var themeBtn = document.getElementById('themeBtn');
+    var themePanel = document.getElementById('themePanel');
     themeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      toggleNotifPopup(false);
-      openPanel('theme');
-    });
-    var bell = document.getElementById('bellBtn');
-    bell.addEventListener('click', function (e) {
-      e.stopPropagation();
-      closePanels();
-      toggleNotifPopup();
+      themePanel.classList.toggle('open');
     });
     document.addEventListener('click', function (e) {
-      var popup = document.getElementById('notifPopup');
-      if (popup && popup.classList.contains('open') &&
-          !popup.contains(e.target) && e.target !== bell && !bell.contains(e.target)) {
-        toggleNotifPopup(false);
-      }
+      if (!themePanel.contains(e.target) && e.target !== themeBtn) themePanel.classList.remove('open');
+    });
+    var bell = document.getElementById('bellBtn');
+    bell.addEventListener('click', function () {
+      var info = renderAnnouncements();
+      var msg = info.anns.length
+        ? info.anns.map(function (a) { return '• ' + a.title; }).join('\n')
+        : 'No announcements right now.';
+      alert(msg);
     });
     var bmBtn = document.getElementById('savedBtn');
+    var savedPanel = document.getElementById('savedPanel');
     bmBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      toggleNotifPopup(false);
       renderSaved();
-      openPanel('saved');
+      savedPanel.classList.toggle('open');
     });
-    ['themeBackdrop', 'savedBackdrop'].forEach(function (id) {
-      var b = document.getElementById(id);
-      if (b) b.addEventListener('click', closePanels);
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { closePanels(); toggleNotifPopup(false); closeInfoModal(); }
+    document.addEventListener('click', function (e) {
+      if (!savedPanel.contains(e.target) && e.target !== bmBtn) savedPanel.classList.remove('open');
     });
     var backTop = document.getElementById('backTop');
     backTop.addEventListener('click', function () {
       window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
     });
-    var pwaHero = document.getElementById('pwaHeroBtn');
-    if (pwaHero) pwaHero.addEventListener('click', showPwaModal);
-    var pwaFooter = document.getElementById('pwaFooterBtn');
-    if (pwaFooter) pwaFooter.addEventListener('click', showPwaModal);
-    document.querySelectorAll('[data-footer-modal]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        openFooterModal(btn.getAttribute('data-footer-modal'));
-      });
-    });
-  }
-
-  /* ---------- preloader ---------- */
-  /* Stage-based progress tied to the real boot steps (config fetch,
-     Sheet read, render). The inline timer in index.html is the safety
-     net if this script never runs; the skip button always works. */
-  var preloaderDone = false;
-  function setPreloader(pct, msg) {
-    var bar = document.getElementById('preloaderFill');
-    var pctEl = document.getElementById('preloaderPct');
-    var step = document.getElementById('preloaderStep');
-    if (bar) bar.style.width = pct + '%';
-    if (pctEl) pctEl.textContent = pct + '%';
-    if (step && msg) step.textContent = msg;
-  }
-  function hidePreloader() {
-    if (preloaderDone) return;
-    preloaderDone = true;
-    var p = document.getElementById('lvPreloader');
-    if (!p) return;
-    setPreloader(100, 'Welcome to LawVault — Your LLB Study Space');
-    setTimeout(function () {
-      p.classList.add('preloader-hidden');
-      setTimeout(function () { if (p.parentNode) p.parentNode.removeChild(p); }, 900);
-    }, REDUCED ? 0 : 200);
-  }
-  function initPreloader() {
-    var skip = document.getElementById('preloaderSkip');
-    if (skip) skip.addEventListener('click', hidePreloader);
-    setPreloader(20, 'Loading site configuration…');
-  }
-
-  /* ---------- Delta particles canvas ---------- */
-  /* 16 slow-rising dots/rings in the current accent colour. Skips
-     drawing entirely under reduced motion, when motion is paused, or
-     when the tab is hidden. */
-  var particleAnimId = null;
-  function initParticles() {
-    var canvas = document.getElementById('deltaParticles');
-    if (!canvas || !canvas.getContext) return;
-    var ctx = canvas.getContext('2d');
-    var width = window.innerWidth, height = window.innerHeight;
-    canvas.width = width; canvas.height = height;
-    window.addEventListener('resize', function () {
-      width = window.innerWidth; height = window.innerHeight;
-      canvas.width = width; canvas.height = height;
-    }, { passive: true });
-    var particles = [];
-    for (var i = 0; i < 16; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        r: Math.random() * 2.0 + 0.9,
-        vx: (Math.random() - 0.5) * 0.28,
-        vy: -Math.random() * 0.35 - 0.1,
-        alpha: Math.random() * 0.35 + 0.1,
-        isRing: i % 5 === 0
-      });
-    }
-    var cleared = false;
-    function drawFrame() {
-      if (motionAllowed() && !document.hidden) {
-        cleared = false;
-        ctx.clearRect(0, 0, width, height);
-        for (var j = 0; j < particles.length; j++) {
-          var p = particles[j];
-          p.x += p.vx; p.y += p.vy;
-          if (p.y < -20) p.y = height + 20;
-          if (p.x < -20) p.x = width + 20;
-          if (p.x > width + 20) p.x = -20;
-          ctx.beginPath();
-          if (p.isRing) {
-            ctx.arc(p.x, p.y, p.r * 3.8, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(' + PARTICLE_RGB + ', ' + (p.alpha * 0.55) + ')';
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-          } else {
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(' + PARTICLE_RGB + ', ' + p.alpha + ')';
-            ctx.fill();
-          }
-        }
-      } else if (!cleared) {
-        ctx.clearRect(0, 0, width, height);
-        cleared = true;
-      }
-      particleAnimId = requestAnimationFrame(drawFrame);
-    }
-    if (particleAnimId) cancelAnimationFrame(particleAnimId);
-    drawFrame();
-  }
-
-  /* ---------- spotlight follower + card tilt ---------- */
-  /* GPU-only: a single transform on a fixed layer, rAF-throttled, and
-     no DOM queries inside the mousemove handler. Fine pointers only;
-     disabled under reduced motion or when motion is paused. */
-  function initSpotlight() {
-    var spotlight = document.getElementById('spotlightLayer');
-    if (!spotlight) return;
-    if (window.matchMedia && !window.matchMedia('(pointer: fine)').matches) return;
-    var mouseX = window.innerWidth * 0.5, mouseY = window.innerHeight * 0.3;
-    var rafPending = false;
-    window.addEventListener('mousemove', function (e) {
-      mouseX = e.clientX; mouseY = e.clientY;
-      if (!rafPending && motionAllowed()) {
-        rafPending = true;
-        requestAnimationFrame(function () {
-          spotlight.style.transform = 'translate3d(' + mouseX + 'px, ' + mouseY + 'px, 0)';
-          rafPending = false;
-        });
-      }
-    }, { passive: true });
-  }
-  function initTilt() {
-    if (window.matchMedia && !window.matchMedia('(pointer: fine)').matches) return;
-    var current = null, rafPending = false, mx = 0, my = 0;
-    document.addEventListener('pointermove', function (e) {
-      var card = e.target && e.target.closest
-        ? e.target.closest('.today-card, .subj-card, .mini-card, .contact-card')
-        : null;
-      if (!card || !card.classList.contains('in') || !motionAllowed()) {
-        if (current) { current.style.transform = ''; current = null; }
-        return;
-      }
-      if (current && current !== card) current.style.transform = '';
-      current = card; mx = e.clientX; my = e.clientY;
-      if (!rafPending) {
-        rafPending = true;
-        requestAnimationFrame(function () {
-          rafPending = false;
-          if (!current) return;
-          var r = current.getBoundingClientRect();
-          var rx = ((my - r.top) / r.height - 0.5) * -4;
-          var ry = ((mx - r.left) / r.width - 0.5) * 4;
-          current.style.transform = 'perspective(700px) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg) translateY(-3px)';
-        });
-      }
-    }, { passive: true });
-    document.addEventListener('pointerout', function (e) {
-      if (current && !current.contains(e.relatedTarget)) {
-        current.style.transform = '';
-        current = null;
-      }
-    }, { passive: true });
-  }
-  function initAmbient() {
-    refreshParticleRgb();
-    initParticles();
-    initSpotlight();
-    initTilt();
-  }
-
-  /* ---------- info modal + PWA install ---------- */
-  var infoModalAction = null;
-  function openInfoModal(title, buildBody, action) {
-    var modal = document.getElementById('infoModal');
-    var titleEl = document.getElementById('infoModalTitle');
-    var body = document.getElementById('infoModalBody');
-    var installBtn = document.getElementById('infoModalInstall');
-    if (!modal || !titleEl || !body) return;
-    titleEl.textContent = title;
-    body.innerHTML = '';
-    buildBody(body);
-    infoModalAction = action || null;
-    if (installBtn) {
-      installBtn.hidden = !action;
-      if (action) installBtn.textContent = action.label;
-    }
-    modal.hidden = false;
-  }
-  function closeInfoModal() {
-    var modal = document.getElementById('infoModal');
-    if (modal) modal.hidden = true;
-    infoModalAction = null;
-  }
-  function initInfoModal() {
-    var close = document.getElementById('infoModalClose');
-    var ok = document.getElementById('infoModalOk');
-    var install = document.getElementById('infoModalInstall');
-    var modal = document.getElementById('infoModal');
-    if (close) close.addEventListener('click', closeInfoModal);
-    if (ok) ok.addEventListener('click', closeInfoModal);
-    if (install) install.addEventListener('click', function () {
-      var action = infoModalAction;
-      closeInfoModal();
-      if (action && action.fn) action.fn();
-    });
-    if (modal) modal.addEventListener('click', function (e) {
-      if (e.target === modal) closeInfoModal();
-    });
-  }
-  function openFooterModal(key) {
-    var copy = {
-      About: [
-        'LawVault is your class knowledge library — LLB notes, case laws, previous papers and exam resources, organised in one place.',
-        'Notes themselves stay on Google Drive; this site is the index and navigation layer. Content is managed by the administrator through a Google Sheet, so updates appear here without any code change.'
-      ],
-      Privacy: [
-        'LawVault stores your theme preferences, bookmarks, recently viewed items, and revision checklist strictly in your local browser (localStorage keys lv-theme-v3, lv-bookmarks-v3, lv-recent-v3, lv-checklist-v3, lv-motion-v3).',
-        'There are no accounts, no tracking, and nothing you do here is sent anywhere except the read-only requests that load the site content.'
-      ],
-      Disclaimer: [
-        'All study digests, case summaries, and unverified community notes on LawVault are meant for academic reference only and must be verified against official university syllabi and statutory bare acts.',
-        'Material in Pending & Unverified has not been checked and must not be treated as official or approved.'
-      ]
-    };
-    openInfoModal(key + ' — LawVault', function (body) {
-      (copy[key] || []).forEach(function (para) {
-        body.appendChild(h('p', null, para));
-      });
-    }, null);
-  }
-  var deferredPrompt = null;
-  function initPwa() {
-    window.addEventListener('beforeinstallprompt', function (e) {
-      e.preventDefault();
-      deferredPrompt = e;
-    });
-    window.addEventListener('appinstalled', function () {
-      deferredPrompt = null;
-      showToast('LawVault installed — find it on your home screen.');
-    });
-  }
-  function isInstalled() {
-    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-      window.navigator.standalone === true;
-  }
-  function showPwaModal() {
-    if (isInstalled()) {
-      openInfoModal('LawVault is installed', function (body) {
-        body.appendChild(h('p', null, 'LawVault is already running as an installed app on this device. You can open it from your home screen or app list, and it works offline.'));
-      }, null);
-      return;
-    }
-    if (deferredPrompt) {
-      openInfoModal('Install LawVault', function (body) {
-        body.appendChild(h('p', null, 'Add LawVault to your home screen for a full-screen, offline-capable app experience — same notes, same Drive links, no browser chrome.'));
-      }, {
-        label: 'Install app',
-        fn: function () {
-          var p = deferredPrompt;
-          deferredPrompt = null;
-          if (p) p.prompt();
-        }
-      });
-      return;
-    }
-    openInfoModal('Add LawVault to your home screen', function (body) {
-      body.appendChild(h('p', null, 'LawVault works as an installable app (manifest + service worker):'));
-      var ul = h('ul');
-      ul.appendChild(h('li', null, 'Android (Chrome): tap the browser menu (⋮) and select “Add to Home screen” or “Install app”.'));
-      ul.appendChild(h('li', null, 'iOS (Safari): tap the Share button and select “Add to Home Screen”.'));
-      body.appendChild(ul);
-    }, null);
   }
 
   /* ---------- motion layer (v4) ---------- */
@@ -1946,29 +1405,21 @@
     wireHeader();
     wireSearch();
     SEARCH_INDEX = window.LVSearch.buildIndex(CONTENT);
-    updateSavedBadge();
     applySectionOrder();
     initMotion();
     initScrollMotion();
-    initAmbient();
-    setPreloader(90, 'Building your study space…');
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(function () {});
     }
-    hidePreloader();
   }
 
   function boot() {
-    initPreloader();
-    initPwa();
-    initInfoModal();
     Promise.all([
       fetch('./data/site-config.json').then(function (r) { return r.json(); }),
       fetch('./data/content.json').then(function (r) { return r.json(); }),
       fetch('./data/sheets-config.json').then(function (r) { return r.json(); }).catch(function () { return null; }),
     ]).then(function (arr) {
       CFG = arr[0]; CONTENT = arr[1];
-      setPreloader(45, 'Configuration loaded. Reading the Google Sheet…');
       var sheetsCfg = arr[2];
       var overlay = null;
       if (sheetsCfg && sheetsCfg.enabled === true && typeof sheetsCfg.sheetId === 'string' && sheetsCfg.sheetId.trim()) {
@@ -1984,11 +1435,9 @@
             CONTENT = mapSheetsToContent(tabs, CONTENT);
           } catch (e) { /* keep the local fallback content */ }
         }
-        setPreloader(70, 'Content ready. Rendering…');
         renderAll();
       });
     }).catch(function () {
-      hidePreloader();
       document.getElementById('todayBody').innerHTML =
         '<div class="card empty"><strong>Could not load content</strong>The configuration files could not be fetched. Check your connection and reload.</div>';
     });
