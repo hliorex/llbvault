@@ -651,6 +651,21 @@
   function renderFooter() {
     document.getElementById('year').textContent = new Date().getFullYear();
     document.getElementById('footTag').textContent = (CFG.site || {}).footerTagline || '';
+    var legal = document.getElementById('footLegal');
+    if (legal) {
+      legal.textContent = (CFG.site || {}).footerLegal ||
+        'Notes are stored on Google Drive; this site only links to them.';
+    }
+  }
+
+  /* Header and footer brand names follow the configured site title
+     and tagline (Sheet settings override the config file). */
+  function renderBrand() {
+    var s = CFG.site || {};
+    var name = s.wordmark || s.title || 'LawVault';
+    var tag = s.tagline || '';
+    document.querySelectorAll('.brand-name').forEach(function (e) { e.textContent = name; });
+    document.querySelectorAll('.brand-sub').forEach(function (e) { e.textContent = tag; });
   }
 
   function renderAnnouncements() {
@@ -974,6 +989,12 @@
     document.querySelectorAll('.chapter-tag').forEach(function (tag) {
       var sec = tag.closest('[data-section]');
       if (sec && sec.style.display === 'none') return;
+      /* The Today chapter tag sits outside #sections; skip it when
+         the Today priority area is hidden. */
+      if (tag.getAttribute('data-chapter') === 'today') {
+        var grid = document.getElementById('todayGrid');
+        if (grid && grid.style.display === 'none') return;
+      }
       n++;
       var num = tag.querySelector('.chapter-num');
       if (num) num.textContent = String(n).padStart(2, '0');
@@ -994,6 +1015,14 @@
         if (el) el.style.display = 'none';
       }
     });
+    /* The Today priority area lives outside #sections, so its
+       visibility is applied separately, tag and grid together. */
+    if (vis.today === false) {
+      var tag = document.querySelector('.chapter-tag[data-chapter="today"]');
+      if (tag) tag.style.display = 'none';
+      var grid = document.getElementById('todayGrid');
+      if (grid) grid.style.display = 'none';
+    }
     renumberChapters();
   }
 
@@ -1292,12 +1321,32 @@
     if (map.welcome_title) cfg.site.welcomeTitle = map.welcome_title;
     if (map.welcome_subtitle) cfg.site.welcomeSubtitle = map.welcome_subtitle;
     if (map.footer_tagline) cfg.site.footerTagline = map.footer_tagline;
+    if (map.footer_legal) cfg.site.footerLegal = map.footer_legal;
     if (map.main_drive_folder && /^https:\/\//i.test(map.main_drive_folder)) cfg.site.mainDriveFolder = map.main_drive_folder;
+    /* Section visibility: a Sheet key overrides the config value for
+       that section; an absent key keeps the config fallback. */
+    var sectionIds = ['today', 'semesters', 'cases', 'papers', 'exam', 'pending', 'contact'];
+    cfg.sectionVisibility = cfg.sectionVisibility || {};
+    sectionIds.forEach(function (id) {
+      var key = 'section_' + id + '_enabled';
+      if (map[key] !== undefined && map[key] !== '') cfg.sectionVisibility[id] = sBool(map[key]);
+    });
     cfg.theme = cfg.theme || {};
     if (map.default_mode === 'light' || map.default_mode === 'dark') cfg.theme.defaultMode = map.default_mode;
     var colors = (cfg.theme.colors || []).map(function (c) { return c.id; });
     if (map.default_color && colors.indexOf(map.default_color) !== -1) cfg.theme.defaultColor = map.default_color;
     if (map.festival_auto !== undefined && map.festival_auto !== '') cfg.theme.autoFestival = sBool(map.festival_auto);
+    /* Festival overrides: date ranges and palette colours from the
+       Sheet win over the config values, but only when they are valid
+       (MM-DD dates, #rrggbb colours). Invalid values keep the config
+       fallback, so a typo can never break the theme. */
+    (cfg.theme.festivals || []).forEach(function (f) {
+      var pre = 'festival_' + f.id + '_';
+      if (/^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(map[pre + 'start'] || '')) f.start = map[pre + 'start'];
+      if (/^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(map[pre + 'end'] || '')) f.end = map[pre + 'end'];
+      if (/^#[0-9a-fA-F]{6}$/.test(map[pre + 'accent'] || '')) f.accent = map[pre + 'accent'];
+      if (/^#[0-9a-fA-F]{6}$/.test(map[pre + 'accent2'] || '')) f.accent2 = map[pre + 'accent2'];
+    });
     return cfg;
   }
   /* SHEETS-END */
@@ -1336,6 +1385,7 @@
   /* ---------- boot ---------- */
   function renderAll() {
     document.title = (CFG.site && CFG.site.title ? CFG.site.title + ' — ' : '') + 'Your LLB Class Knowledge Library';
+    renderBrand();
     renderNav();
     renderWelcome();
     var sn = document.getElementById('searchNote');
