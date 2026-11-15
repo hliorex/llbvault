@@ -1,4 +1,19 @@
-# LawVault v5 — LLB Class Knowledge Library
+# LawVault v6 — LLB Class Knowledge Library
+
+v6 is a UI redesign of the v5 **public site only**, adopting the Delta
+× VineWinner sample design: Cormorant Garamond editorial serif + Plus
+Jakarta Sans + JetBrains Mono, luxury cards, a preloader tied to the
+real boot steps, a particles canvas, a cursor spotlight, curtain-wipe
+view transitions, a notifications popup, slide-in appearance/saved
+panels, a PWA install guidance modal, and a toast. All core functions
+are unchanged from v5: the Google Sheets data layer, the theme and
+festival engine, search, bookmarks, and publish/expiry rules work
+exactly as before, and the admin panel is byte-identical to v5.
+
+Deliberately not adopted from the sample: its photographic plates,
+hero arch imagery and gallery (the site stays a self-contained offline
+PWA with no external images), and its demo/test toggles (fake empty
+states, festival simulator) — the site shows real Sheet data only.
 
 v5 builds on v4: the same editorial, motion-led public site (premium
 serif display type, masked headline reveals, chapter-style sections,
@@ -148,11 +163,13 @@ The Sheet's tabs, columns, and value formats are documented in
 ## Publish to GitHub Pages (beginner steps)
 
 The live site is the `hliorex/llbvault` repository, branch `main`,
-folder `/ (root)`. To publish v5:
+folder `/ (root)`. To publish v6 (public-site files only — the admin
+panel is unchanged, so `admin.html` and `assets/js/admin.js` need no
+re-upload, though re-uploading the identical files is harmless):
 
-1. Before publishing, the v4 site must be backed up — see
-   `ROLLBACK.md` (a `v4-backup` branch in GitHub plus the untouched
-   local folder `~/workspace/llb-notes-site-v4/`).
+1. Before publishing, the v5 site must be backed up — see
+   `ROLLBACK.md` (a `v5-backup` branch in GitHub plus the untouched
+   local folder `~/workspace/llb-notes-site-v5/`).
 2. Upload this folder's contents to the repository root, replacing
    `index.html`, `assets/`, `data/`, `sw.js`, `manifest.webmanifest`,
    and `README.md`, and adding `admin.html`, `SHEET_MODEL.md`,
